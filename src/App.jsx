@@ -12,6 +12,7 @@ import { InventoryModal } from './components/InventoryModal';
 import { TitleModal } from './components/TitleModal';
 
 const SAVE_KEY = 'pien_roguelike_save_v1';
+const MAX_COMPANIONS = 3;
 
 function calcHandScore(hand) {
   let score = 0;
@@ -46,7 +47,7 @@ const ROULETTE_ITEMS = ['👑', '💎', '💰', '🍞', '💣', '⭐', '💎', '
 
 export default function App() {
   // Modal State Management
-  const [activeModal, setActiveModal] = useState('TITLE'); // 'TITLE', 'INVENTORY', 'NPC_DIALOGUE', 'BOSS_ANN', 'GAME_OVER', 'VICTORY', 'RENAME_PET', 'BLACKJACK', 'ROULETTE'
+  const [activeModal, setActiveModal] = useState('TITLE');
 
   // Game Engine State
   const [gameState, setGameState] = useState(null);
@@ -54,6 +55,7 @@ export default function App() {
   const [floorAnnounce, setFloorAnnounce] = useState(null);
   const [npcSpeech, setNpcSpeech] = useState(null);
   const [bossInfo, setBossInfo] = useState(null);
+  const [selectedPetIdx, setSelectedPetIdx] = useState(0);
   const [newPetName, setNewPetName] = useState('');
 
   // BlackJack State
@@ -62,7 +64,7 @@ export default function App() {
   const [bjStatus, setBjStatus] = useState('BET');
   const [bjResultMsg, setBjResultMsg] = useState('');
 
-  // Timing Roulette State (Skill-Based Gambler Game)
+  // Timing Roulette State
   const [rouletteIndex, setRouletteIndex] = useState(0);
   const [rouletteResultMsg, setRouletteResultMsg] = useState('');
 
@@ -91,6 +93,25 @@ export default function App() {
     const atk = jobClass.atk + (initWep?.atkBonus || 0);
     const def = jobClass.def + (initShd?.defBonus || 0);
 
+    const initialCompanion = {
+      id: 'pet_dog',
+      name: 'ポチ',
+      emoji: '🐶',
+      x: dungeon.playerSpawn.x - 1,
+      y: dungeon.playerSpawn.y,
+      hp: 30,
+      maxHp: 30,
+      atk: 8,
+      def: 3,
+      level: 1,
+      exp: 0,
+      inventory: [
+        { id: 'pet_init_herb', name: '薬草', emoji: '🌿', category: 'CONSUMABLE', type: 'HERB', heal: 25 },
+      ],
+      equippedWeapon: null,
+      equippedShield: null,
+    };
+
     const newGameState = {
       playerName,
       className: jobClass.name,
@@ -110,24 +131,7 @@ export default function App() {
         food: 100,
         facing: { x: 0, y: 1 },
       },
-      companion: {
-        id: 'pet_dog',
-        name: 'ポチ',
-        emoji: '🐶',
-        x: dungeon.playerSpawn.x - 1,
-        y: dungeon.playerSpawn.y,
-        hp: 30,
-        maxHp: 30,
-        atk: 8,
-        def: 3,
-        level: 1,
-        exp: 0,
-        inventory: [
-          { id: 'pet_init_herb', name: '薬草', emoji: '🌿', category: 'CONSUMABLE', type: 'HERB', heal: 25 },
-        ],
-        equippedWeapon: null,
-        equippedShield: null,
-      },
+      companions: [initialCompanion],
       inventory: jobClass.initialItems,
       grid: dungeon.grid,
       wallData: dungeon.wallData,
@@ -183,7 +187,7 @@ export default function App() {
     if (!gameState || activeModal) return;
 
     let state = { ...gameState };
-    let { player, companion, enemies, npcs, items, grid, wallData, stairsPos } = state;
+    let { player, companions, enemies, npcs, items, grid, wallData, stairsPos } = state;
     let turnActionTaken = false;
 
     if (playerAction.type === 'MOVE') {
@@ -206,7 +210,8 @@ export default function App() {
           if (npcHere) {
             triggerNpcDialogue(npcHere);
           } else {
-            if (!companion || companion.x !== targetX || companion.y !== targetY) {
+            const companionHere = companions.some((c) => c.x === targetX && c.y === targetY);
+            if (!companionHere) {
               player.x = targetX;
               player.y = targetY;
               turnActionTaken = true;
@@ -242,9 +247,9 @@ export default function App() {
       }
     } else if (playerAction.type === 'WAIT') {
       if (player.hp < player.maxHp) player.hp = Math.min(player.maxHp, player.hp + 1);
-      if (companion && companion.hp < companion.maxHp) {
-        companion.hp = Math.min(companion.maxHp, companion.hp + 1);
-      }
+      companions.forEach((c) => {
+        if (c.hp < c.maxHp) c.hp = Math.min(c.maxHp, c.hp + 1);
+      });
       turnActionTaken = true;
     }
 
@@ -261,9 +266,8 @@ export default function App() {
       }
     }
 
-    if (companion && companion.hp > 0) {
-      processCompanionAI(state);
-    }
+    // Process AI for All Active Companions
+    processMultiCompanionsAI(state);
 
     processEnemiesAI(state);
 
@@ -273,7 +277,7 @@ export default function App() {
   };
 
   const executePlayerAttack = (state, enemy) => {
-    const { player, companion } = state;
+    const { player, companions } = state;
     const dmg = Math.max(1, player.atk - enemy.def + Math.floor(Math.random() * 3));
     enemy.hp -= dmg;
     addLog(`⚔️ ${player.name} は ${enemy.emoji} ${enemy.name} に ${dmg} ダメージを与えた！`);
@@ -290,18 +294,18 @@ export default function App() {
         return;
       }
 
-      if (companion) {
-        companion.exp += Math.floor(enemy.exp * 0.5);
-        if (companion.exp >= companion.level * 25) {
-          companion.level += 1;
-          companion.maxHp += 8;
-          companion.hp = companion.maxHp;
-          companion.atk += 3;
-          companion.def += 2;
-          addLog(`✨ ${companion.emoji} ${companion.name} は Lv.${companion.level} にレベルアップした！`);
+      companions.forEach((c) => {
+        c.exp += Math.floor(enemy.exp * 0.5);
+        if (c.exp >= c.level * 25) {
+          c.level += 1;
+          c.maxHp += 8;
+          c.hp = c.maxHp;
+          c.atk += 3;
+          c.def += 2;
+          addLog(`✨ ${c.emoji} ${c.name} は Lv.${c.level} にレベルアップした！`);
           sounds.playLevelUp();
         }
-      }
+      });
     }
   };
 
@@ -338,147 +342,146 @@ export default function App() {
     }
   };
 
-  const processCompanionAI = (state) => {
-    const { companion, enemies, player, grid, items } = state;
-    if (!companion) return;
+  // MULTI-PET NO-STUCK AI ENGINE
+  const processMultiCompanionsAI = (state) => {
+    const { companions, enemies, player, grid, items } = state;
 
-    if (companion.hp <= companion.maxHp * 0.5) {
-      const healItemIdx = companion.inventory.findIndex(
-        (i) => i.type === 'HERB' || i.type === 'POTION' || i.type === 'FOOD' || i.foodRestore > 0
-      );
-      if (healItemIdx >= 0) {
-        const item = companion.inventory[healItemIdx];
-        companion.inventory.splice(healItemIdx, 1);
-        const healAmt = item.heal || 30;
-        companion.hp = Math.min(companion.maxHp, companion.hp + healAmt);
-        addLog(`🧪 🐾 ${companion.name} は自律判断で ${item.name} を使って HP を ${healAmt} 回復した！`);
+    companions.forEach((companion, idx) => {
+      if (companion.hp <= 0) return;
+
+      // Auto Heal
+      if (companion.hp <= companion.maxHp * 0.5) {
+        const healItemIdx = companion.inventory.findIndex(
+          (i) => i.type === 'HERB' || i.type === 'POTION' || i.type === 'FOOD' || i.foodRestore > 0
+        );
+        if (healItemIdx >= 0) {
+          const item = companion.inventory[healItemIdx];
+          companion.inventory.splice(healItemIdx, 1);
+          const healAmt = item.heal || 30;
+          companion.hp = Math.min(companion.maxHp, companion.hp + healAmt);
+          addLog(`🧪 🐾 ${companion.name} は ${item.name} で HP を ${healAmt} 回復！`);
+          sounds.playHeal();
+          return;
+        }
+      }
+
+      // Auto Equip
+      companion.inventory.forEach((item) => {
+        if (item.type === 'WEAPON') {
+          if (!companion.equippedWeapon || item.atkBonus > companion.equippedWeapon.atkBonus) {
+            if (companion.equippedWeapon) companion.atk -= companion.equippedWeapon.atkBonus;
+            companion.equippedWeapon = item;
+            companion.atk += item.atkBonus;
+            addLog(`✨ 🐾 ${companion.name} は ${item.emoji} ${item.name} を自律装備！`);
+          }
+        } else if (item.type === 'SHIELD') {
+          if (!companion.equippedShield || item.defBonus > companion.equippedShield.defBonus) {
+            if (companion.equippedShield) companion.def -= companion.equippedShield.defBonus;
+            companion.equippedShield = item;
+            companion.def += item.defBonus;
+            addLog(`✨ 🐾 ${companion.name} は ${item.emoji} ${item.name} を自律装備！`);
+          }
+        }
+      });
+
+      // Auto Pickup Item
+      const floorItemIdx = items.findIndex((i) => i.x === companion.x && i.y === companion.y);
+      if (floorItemIdx >= 0) {
+        const pickedItem = items[floorItemIdx];
+        items.splice(floorItemIdx, 1);
+        companion.inventory.push(pickedItem);
+        addLog(`✨ 🐾 ${companion.name} は ${pickedItem.emoji} ${pickedItem.name} を拾った！`);
         sounds.playHeal();
-        return;
       }
-    }
 
-    companion.inventory.forEach((item) => {
-      if (item.type === 'WEAPON') {
-        if (!companion.equippedWeapon || item.atkBonus > companion.equippedWeapon.atkBonus) {
-          if (companion.equippedWeapon) {
-            companion.atk -= companion.equippedWeapon.atkBonus;
+      // Enemy Attack/Approach
+      let nearestEnemy = null;
+      let minDist = 999;
+      enemies.forEach((e) => {
+        const dist = Math.abs(e.x - companion.x) + Math.abs(e.y - companion.y);
+        if (dist < minDist && dist <= 5) {
+          minDist = dist;
+          nearestEnemy = e;
+        }
+      });
+
+      if (nearestEnemy) {
+        if (minDist <= 1) {
+          const dmg = Math.max(1, companion.atk - nearestEnemy.def);
+          nearestEnemy.hp -= dmg;
+          addLog(`🐾 ${companion.name} の攻撃！ ${nearestEnemy.emoji} ${nearestEnemy.name} に ${dmg} ダメージ！`);
+          sounds.playAttack();
+
+          if (nearestEnemy.hp <= 0) {
+            state.enemies = state.enemies.filter((e) => e.id !== nearestEnemy.id);
+            addLog(`💥 ${companion.name} は ${nearestEnemy.name} を倒した！`);
           }
-          companion.equippedWeapon = item;
-          companion.atk += item.atkBonus;
-          addLog(`✨ 🐾 ${companion.name} は ${item.emoji} ${item.name} を自律装備した！ (攻撃力+${item.atkBonus})`);
-          sounds.playSelect();
-        }
-      } else if (item.type === 'SHIELD') {
-        if (!companion.equippedShield || item.defBonus > companion.equippedShield.defBonus) {
-          if (companion.equippedShield) {
-            companion.def -= companion.equippedShield.defBonus;
-          }
-          companion.equippedShield = item;
-          companion.def += item.defBonus;
-          addLog(`✨ 🐾 ${companion.name} は ${item.emoji} ${item.name} を自律装備した！ (防御力+${item.defBonus})`);
-          sounds.playSelect();
+          return;
         }
       }
-    });
 
-    const floorItemIdx = items.findIndex((i) => i.x === companion.x && i.y === companion.y);
-    if (floorItemIdx >= 0) {
-      const pickedItem = items[floorItemIdx];
-      items.splice(floorItemIdx, 1);
-      companion.inventory.push(pickedItem);
-      addLog(`✨ 🐾 ${companion.name} は落ちていた ${pickedItem.emoji} ${pickedItem.name} を自律回収した！`);
-      sounds.playHeal();
-    }
+      // Snake Queue Follow Leader (Player or preceding pet)
+      const leaderTarget = idx === 0 ? player : companions[idx - 1];
+      const distToLeader = Math.abs(leaderTarget.x - companion.x) + Math.abs(leaderTarget.y - companion.y);
 
-    let nearestEnemy = null;
-    let minDist = 999;
-    enemies.forEach((e) => {
-      const dist = Math.abs(e.x - companion.x) + Math.abs(e.y - companion.y);
-      if (dist < minDist && dist <= 6) {
-        minDist = dist;
-        nearestEnemy = e;
-      }
-    });
-
-    if (nearestEnemy) {
-      if (minDist <= 1) {
-        const dmg = Math.max(1, companion.atk - nearestEnemy.def);
-        nearestEnemy.hp -= dmg;
-        addLog(`🐾 ${companion.name} の攻撃！ ${nearestEnemy.emoji} ${nearestEnemy.name} に ${dmg} ダメージ！`);
-        sounds.playAttack();
-
-        if (nearestEnemy.hp <= 0) {
-          state.enemies = state.enemies.filter((e) => e.id !== nearestEnemy.id);
-          addLog(`💥 ${companion.name} は ${nearestEnemy.name} を倒した！`);
-        }
-      } else {
-        const dx = Math.sign(nearestEnemy.x - companion.x);
-        const dy = Math.sign(nearestEnemy.y - companion.y);
+      if (distToLeader > 1) {
+        const dx = Math.sign(leaderTarget.x - companion.x);
+        const dy = Math.sign(leaderTarget.y - companion.y);
 
         const nextX = companion.x + dx;
         const nextY = companion.y + dy;
 
+        const isPlayerOnNext = player.x === nextX && player.y === nextY;
+        const isOtherPetOnNext = companions.some((c) => c.id !== companion.id && c.x === nextX && c.y === nextY);
         const isEnemyOnNext = enemies.some((e) => e.x === nextX && e.y === nextY);
-        const isPlayerOnNext = player.x === nextX && player.y === nextY;
 
-        if (grid[nextY]?.[nextX] === 'F' && !isEnemyOnNext && !isPlayerOnNext) {
+        if (grid[nextY]?.[nextX] === 'F' && !isPlayerOnNext && !isOtherPetOnNext && !isEnemyOnNext) {
           companion.x = nextX;
           companion.y = nextY;
         }
       }
-    } else {
-      const distToPlayer = Math.abs(player.x - companion.x) + Math.abs(player.y - companion.y);
-      if (distToPlayer > 2) {
-        const dx = Math.sign(player.x - companion.x);
-        const dy = Math.sign(player.y - companion.y);
-
-        const nextX = companion.x + dx;
-        const nextY = companion.y + dy;
-
-        const isPlayerOnNext = player.x === nextX && player.y === nextY;
-        if (grid[nextY]?.[nextX] === 'F' && !isPlayerOnNext) {
-          companion.x = nextX;
-          companion.y = nextY;
-        }
-      }
-    }
+    });
   };
 
   const processEnemiesAI = (state) => {
-    const { enemies, player, companion, grid } = state;
+    const { enemies, player, companions, grid } = state;
 
     enemies.forEach((enemy) => {
-      const distPlayer = Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y);
-      const distComp = companion ? Math.abs(companion.x - enemy.x) + Math.abs(companion.y - enemy.y) : 999;
+      let closestTarget = player;
+      let minDist = Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y);
 
-      const target = distComp < distPlayer && companion ? companion : player;
-      const targetDist = Math.min(distPlayer, distComp);
+      companions.forEach((c) => {
+        const d = Math.abs(c.x - enemy.x) + Math.abs(c.y - enemy.y);
+        if (d < minDist) {
+          minDist = d;
+          closestTarget = c;
+        }
+      });
 
-      if (targetDist <= 1) {
-        const dmg = Math.max(1, enemy.atk - target.def);
-        target.hp -= dmg;
-        addLog(`💥 ${enemy.emoji} ${enemy.name} の攻撃！ ${target.name} に ${dmg} ダメージ！`);
+      if (minDist <= 1) {
+        const dmg = Math.max(1, enemy.atk - closestTarget.def);
+        closestTarget.hp -= dmg;
+        addLog(`💥 ${enemy.emoji} ${enemy.name} の攻撃！ ${closestTarget.name} に ${dmg} ダメージ！`);
         sounds.playHit();
 
-        if (target === player && player.hp <= 0) {
+        if (closestTarget === player && player.hp <= 0) {
           handleGameOver(`${enemy.name} に倒された…`);
-        } else if (target === companion && companion.hp <= 0) {
-          addLog(`💀 ${companion.name} は ${enemy.name} に倒されてしまった！`);
-          state.companion = null;
+        } else if (closestTarget !== player && closestTarget.hp <= 0) {
+          addLog(`💀 ${closestTarget.name} は ${enemy.name} に倒されてしまった！`);
+          state.companions = companions.filter((c) => c.id !== closestTarget.id);
         }
-      } else if (targetDist <= 5) {
-        const dx = Math.sign(target.x - enemy.x);
-        const dy = Math.sign(target.y - enemy.y);
+      } else if (minDist <= 5) {
+        const dx = Math.sign(closestTarget.x - enemy.x);
+        const dy = Math.sign(closestTarget.y - enemy.y);
 
         const nextX = enemy.x + dx;
         const nextY = enemy.y + dy;
 
-        const isOccupied =
-          (player.x === nextX && player.y === nextY) ||
-          (companion && companion.x === nextX && companion.y === nextY) ||
-          enemies.some((other) => other.id !== enemy.id && other.x === nextX && other.y === nextY);
+        const isPlayerOnNext = player.x === nextX && player.y === nextY;
+        const isPetOnNext = companions.some((c) => c.x === nextX && c.y === nextY);
+        const isEnemyOnNext = enemies.some((other) => other.id !== enemy.id && other.x === nextX && other.y === nextY);
 
-        if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
+        if (grid[nextY]?.[nextX] === 'F' && !isPlayerOnNext && !isPetOnNext && !isEnemyOnNext) {
           enemy.x = nextX;
           enemy.y = nextY;
         }
@@ -501,10 +504,11 @@ export default function App() {
     state.stairsPos = dungeon.stairsPos;
     state.player.x = dungeon.playerSpawn.x;
     state.player.y = dungeon.playerSpawn.y;
-    if (state.companion) {
-      state.companion.x = dungeon.playerSpawn.x - 1;
-      state.companion.y = dungeon.playerSpawn.y;
-    }
+
+    state.companions.forEach((c, idx) => {
+      c.x = dungeon.playerSpawn.x - (idx + 1);
+      c.y = dungeon.playerSpawn.y;
+    });
 
     if (nextFloor === 5 || nextFloor === 10) {
       const boss = await generateBossData(nextFloor);
@@ -541,7 +545,7 @@ export default function App() {
   const handleUseItem = (item) => {
     if (!gameState) return;
     const state = { ...gameState };
-    const { player, companion, inventory, enemies } = state;
+    const { player, companions, inventory, enemies } = state;
 
     if (item.type === 'TAME') {
       const frontX = player.x + player.facing.x;
@@ -552,7 +556,8 @@ export default function App() {
         addLog(`💖 ${item.name} を ${targetEnemy.emoji} ${targetEnemy.name} に投げ与えた！`);
         sounds.playMagic();
         state.enemies = enemies.filter((e) => e.id !== targetEnemy.id);
-        state.companion = {
+
+        const newPet = {
           id: `pet_${Date.now()}`,
           name: targetEnemy.name,
           emoji: targetEnemy.emoji,
@@ -568,6 +573,12 @@ export default function App() {
           equippedWeapon: null,
           equippedShield: null,
         };
+
+        if (companions.length >= MAX_COMPANIONS) {
+          companions.shift();
+          addLog(`⚠️ 仲間が上限 (${MAX_COMPANIONS}体) を超えたため、最初の仲間とお別れした。`);
+        }
+        companions.push(newPet);
         addLog(`✨ ${targetEnemy.emoji} ${targetEnemy.name} が心を開き、新しい仲間ペットになった！`);
         sounds.playFanfare();
       } else {
@@ -581,12 +592,10 @@ export default function App() {
     } else if (item.type === 'HERB' || item.type === 'POTION') {
       const healAmount = item.heal || 30;
       player.hp = Math.min(player.maxHp, player.hp + healAmount);
-      if (companion) {
-        companion.hp = Math.min(companion.maxHp, companion.hp + healAmount);
-        addLog(`🌿 薬草を使い、${player.name} と ${companion.name} の HP が ${healAmount} 回復した！`);
-      } else {
-        addLog(`🌿 薬草を使って HP が ${healAmount} 回復した！`);
-      }
+      companions.forEach((c) => {
+        c.hp = Math.min(c.maxHp, c.hp + healAmount);
+      });
+      addLog(`🌿 薬草を使い、全員の HP が ${healAmount} 回復した！`);
       sounds.playHeal();
     } else if (item.category === 'SPELLBOOK') {
       const enemyNear = state.enemies[0];
@@ -865,7 +874,7 @@ export default function App() {
   const handleBuyPetFromNpc = (petType) => {
     if (!gameState) return;
     const state = { ...gameState };
-    const { player } = state;
+    const { player, companions } = state;
 
     const petTemplates = {
       WOLF: { name: 'ウルフ', emoji: '🐺', cost: 120, hp: 40, atk: 12, def: 4 },
@@ -882,7 +891,7 @@ export default function App() {
     }
 
     state.gold -= tpl.cost;
-    state.companion = {
+    const newPet = {
       id: `pet_bought_${Date.now()}`,
       name: tpl.name,
       emoji: tpl.emoji,
@@ -898,16 +907,23 @@ export default function App() {
       equippedWeapon: null,
       equippedShield: null,
     };
-    addLog(`✨ ${tpl.cost}G を支払って ${tpl.emoji} ${tpl.name} を新しい仲間ペットに雇った！`);
+
+    if (companions.length >= MAX_COMPANIONS) {
+      companions.shift();
+      addLog(`⚠️ 仲間が上限 (${MAX_COMPANIONS}体) を超えたため、最初の仲間とお別れした。`);
+    }
+    companions.push(newPet);
+
+    addLog(`✨ ${tpl.cost}G を支払って ${tpl.emoji} ${tpl.name} を新しい仲間ペットに雇った！ (計${companions.length}体)`);
     sounds.playFanfare();
     setGameState(state);
     setActiveModal(null);
   };
 
   const handleHealPetAtNpc = () => {
-    if (!gameState || !gameState.companion) return;
+    if (!gameState || gameState.companions.length === 0) return;
     const state = { ...gameState };
-    const { companion, gold } = state;
+    const { companions, gold } = state;
 
     if (gold < 50) {
       addLog('⚠️ ゴールドが足りません！ (治療費: 50G)');
@@ -915,18 +931,23 @@ export default function App() {
     }
 
     state.gold -= 50;
-    companion.hp = companion.maxHp;
-    addLog(`✨ 50G を支払って ${companion.name} の傷を治療してもらった！ (HP全回復)`);
+    companions.forEach((c) => {
+      c.hp = c.maxHp;
+    });
+    addLog(`✨ 50G を支払って ペット全員の傷を治療してもらった！ (全員HP全回復)`);
     sounds.playHeal();
     setGameState(state);
     setActiveModal(null);
   };
 
   const handleRenamePet = () => {
-    if (!gameState || !gameState.companion) return;
+    if (!gameState || gameState.companions.length === 0) return;
     const state = { ...gameState };
-    const name = newPetName.trim() || state.companion.name;
-    state.companion.name = name;
+    const targetPet = state.companions[selectedPetIdx];
+    if (!targetPet) return;
+
+    const name = newPetName.trim() || targetPet.name;
+    targetPet.name = name;
     addLog(`🏷️ 仲間ペットの名前を 【${name}】 に変更した！`);
     sounds.playSelect();
     setGameState(state);
@@ -973,8 +994,9 @@ export default function App() {
       } else if (e.key === 'i' || e.key === 'I') {
         setActiveModal('INVENTORY');
       } else if (e.key === 'n' || e.key === 'N') {
-        if (gameState?.companion) {
-          setNewPetName(gameState.companion.name);
+        if (gameState?.companions?.length > 0) {
+          setSelectedPetIdx(0);
+          setNewPetName(gameState.companions[0].name);
           setActiveModal('RENAME_PET');
         }
       }
@@ -1142,7 +1164,9 @@ export default function App() {
               {/* 🧔 魔物使い (Tamer) */}
               {npcSpeech.npc.emoji === '🧔' && (
                 <div className="border-t border-gray-700 pt-2 flex flex-col space-y-1.5">
-                  <div className="text-yellow-300 font-bold text-[11px] mb-1">🐾 新しいペットを雇う:</div>
+                  <div className="text-yellow-300 font-bold text-[11px] mb-1">
+                    🐾 新しいペットを雇う (現在: {gameState.companions.length}/{MAX_COMPANIONS}体):
+                  </div>
                   <button onClick={() => handleBuyPetFromNpc('WOLF')} className="py-1.5 bg-blue-900 hover:bg-blue-800 rounded flex justify-between px-3">
                     <span>🐺 オオカミ (バランス型)</span><span className="text-yellow-300">120G</span>
                   </button>
@@ -1155,12 +1179,12 @@ export default function App() {
                 </div>
               )}
 
-              {gameState?.companion && gameState.companion.hp < gameState.companion.maxHp && (
+              {gameState?.companions?.length > 0 && (
                 <button
                   onClick={handleHealPetAtNpc}
                   className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded flex items-center justify-center space-x-1"
                 >
-                  <span>💖 50G で {gameState.companion.name} を治療する</span>
+                  <span>💖 50G でペット全員を治療する (全快)</span>
                 </button>
               )}
 
@@ -1303,11 +1327,32 @@ export default function App() {
         </div>
       )}
 
-      {activeModal === 'RENAME_PET' && gameState?.companion && (
+      {/* RENAME PET MODAL WITH PET SELECTOR */}
+      {activeModal === 'RENAME_PET' && gameState?.companions?.length > 0 && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 border-4 border-yellow-400 rounded-xl p-5 max-w-sm w-full text-white text-center font-retro shadow-2xl">
-            <div className="text-4xl mb-2">{gameState.companion.emoji}</div>
             <h3 className="text-yellow-400 font-bold mb-3">仲間ペットの名前変更 (N)</h3>
+
+            {/* Pet Selector Tabs */}
+            <div className="flex space-x-2 justify-center mb-4">
+              {gameState.companions.map((pet, idx) => (
+                <button
+                  key={pet.id}
+                  onClick={() => {
+                    setSelectedPetIdx(idx);
+                    setNewPetName(pet.name);
+                  }}
+                  className={`px-3 py-1.5 rounded border ${
+                    selectedPetIdx === idx
+                      ? 'bg-yellow-500 text-black font-bold border-yellow-300'
+                      : 'bg-gray-800 text-white border-gray-600'
+                  }`}
+                >
+                  {pet.emoji} {pet.name}
+                </button>
+              ))}
+            </div>
+
             <input
               type="text"
               value={newPetName}

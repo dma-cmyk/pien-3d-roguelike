@@ -4,69 +4,88 @@ import {
   createNoiseTexture,
   createWallTextureWithCrack,
   createEmojiTexture,
-  createHpBarTexture,
+  createHpBarTexture
 } from '../utils/textureGenerator';
 import { getFloorTheme } from '../game/typesAndConstants';
 
 export function DungeonCanvas({ gameState, hasNightVision }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
-  const rendererRef = useRef(null);
   const cameraRef = useRef(null);
-  const meshesGroupRef = useRef(null);
-
-  // Keep a mutable ref to current gameState to bypass React closure stales in requestAnimationFrame
+  const rendererRef = useRef(null);
+  const mapGroupRef = useRef(null);
   const gameStateRef = useRef(gameState);
-  gameStateRef.current = gameState;
 
-  const hasNightVisionRef = useRef(hasNightVision);
-  hasNightVisionRef.current = hasNightVision;
-
-  // 1. Initialize Three.js Engine & Continuous Camera Lerp Loop
+  // Keep state ref updated
   useEffect(() => {
-    const container = mountRef.current;
-    if (!container) return;
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+  // Initial Three.js Scene Setup
+  useEffect(() => {
+    const currentMount = mountRef.current;
+    if (!currentMount) return;
+
+    const width = currentMount.clientWidth;
+    const height = currentMount.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#030712');
+    scene.background = new THREE.Color(0x050508);
     sceneRef.current = scene;
 
-    const initialPlayer = gameStateRef.current.player;
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(initialPlayer.x, 10, initialPlayer.y + 7.5);
-    camera.lookAt(initialPlayer.x, 0.5, initialPlayer.y);
+    // Perspective Camera for 3D retro voxel view
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera.position.set(0, 14, 10);
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // WebGL Renderer with Shadows & Pixel Ratio optimization
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    currentMount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    container.appendChild(renderer.domElement);
-
-    const group = new THREE.Group();
-    scene.add(group);
-    meshesGroupRef.current = group;
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Lighting Setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
-    const floorTheme = getFloorTheme(gameStateRef.current.floor);
-    const dirLight = new THREE.DirectionalLight(floorTheme.lightColor, 0.85);
-    dirLight.position.set(10, 20, 10);
+    const dirLight = new THREE.DirectionalLight(0xfff5ea, 0.9);
+    dirLight.position.set(20, 40, 20);
     dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
     scene.add(dirLight);
 
+    const mapGroup = new THREE.Group();
+    scene.add(mapGroup);
+    mapGroupRef.current = mapGroup;
+
+    // Smooth Camera Follow Loop using Ref to prevent closure freezing
+    let animationFrameId;
+    const animate = () => {
+      animationFrameId = requestAnimationFrame(animate);
+      const state = gameStateRef.current;
+      if (state && state.player && cameraRef.current) {
+        const targetX = state.player.x;
+        const targetZ = state.player.y;
+
+        // Smooth Lerp Camera Follow
+        cameraRef.current.position.x += (targetX - cameraRef.current.position.x) * 0.15;
+        cameraRef.current.position.z += (targetZ + 7.5 - cameraRef.current.position.z) * 0.15;
+        cameraRef.current.position.y = 11.5;
+        cameraRef.current.lookAt(targetX, 0, targetZ);
+      }
+      renderer.render(scene, camera);
+    };
+    animate();
+
     const handleResize = () => {
-      if (!container || !rendererRef.current || !cameraRef.current) return;
-      const w = container.clientWidth;
-      const h = container.clientHeight;
+      if (!currentMount || !rendererRef.current || !cameraRef.current) return;
+      const w = currentMount.clientWidth;
+      const h = currentMount.clientHeight;
       cameraRef.current.aspect = w / h;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(w, h);
@@ -74,58 +93,36 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
 
     window.addEventListener('resize', handleResize);
 
-    // Camera follow animation loop using latest gameStateRef
-    let animationFrameId;
-    const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
-      if (rendererRef.current && sceneRef.current && cameraRef.current && gameStateRef.current) {
-        const curPlayer = gameStateRef.current.player;
-        const targetCamX = curPlayer.x;
-        const targetCamZ = curPlayer.y + 7.5;
-
-        // Lerp camera position
-        cameraRef.current.position.x += (targetCamX - cameraRef.current.position.x) * 0.2;
-        cameraRef.current.position.z += (targetCamZ - cameraRef.current.position.z) * 0.2;
-        cameraRef.current.position.y = 10;
-        cameraRef.current.lookAt(cameraRef.current.position.x, 0.5, cameraRef.current.position.z - 7.5);
-
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }
-    };
-    animate();
-
     return () => {
-      window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
-      if (renderer.domElement && container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
+      window.removeEventListener('resize', handleResize);
+      if (currentMount && renderer.domElement) {
+        currentMount.removeChild(renderer.domElement);
       }
       renderer.dispose();
     };
   }, []);
 
-  // 2. Re-build / Sync 3D Scene whenever gameState updates
+  // Render 3D Voxels, Sprites & Billboards on Game State Update
   useEffect(() => {
-    if (!meshesGroupRef.current || !gameState) return;
-    const group = meshesGroupRef.current;
+    if (!gameState || !mapGroupRef.current) return;
 
-    // Clear previous dynamic meshes
-    while (group.children.length > 0) {
-      group.remove(group.children[0]);
-    }
+    const group = mapGroupRef.current;
+    group.clear();
 
     const {
-      floor,
       grid,
       wallData,
       visitedGrid,
       visibleGrid,
-      player,
-      companion,
-      enemies,
-      npcs,
       items,
+      npcs,
+      enemies,
+      companions,
+      companion,
+      player,
       stairsPos,
+      floor,
     } = gameState;
 
     const floorTheme = getFloorTheme(floor);
@@ -134,18 +131,18 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
     const boxGeo = new THREE.BoxGeometry(1, 1, 1);
     const planeGeo = new THREE.PlaneGeometry(1, 1);
 
-    // Render Floor and Wall Voxels
+    const activePets = companions || (companion ? [companion] : []);
+
     for (let y = 0; y < grid.length; y++) {
-      for (let x = 0; x < grid[0].length; x++) {
+      for (let x = 0; x < grid[y].length; x++) {
         const isVisible = nightVision || visibleGrid[y]?.[x];
         const isVisited = visitedGrid[y]?.[x];
 
-        if (!isVisible && !isVisited) continue; // Fog of War
+        if (!isVisible && !isVisited) continue;
 
         const opacity = isVisible ? 1.0 : 0.35;
 
         if (grid[y][x] === 'F') {
-          // Floor Tile
           const floorMat = new THREE.MeshStandardMaterial({
             map: createNoiseTexture(floorTheme.floorColor, 25),
             transparent: true,
@@ -158,7 +155,6 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
           floorMesh.receiveShadow = true;
           group.add(floorMesh);
         } else if (grid[y][x] === 'W') {
-          // Wall Voxel Block
           const wData = wallData[y]?.[x];
           const wallColor = wData?.color || floorTheme.wallColor;
 
@@ -183,7 +179,6 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
           wallMesh.receiveShadow = true;
           group.add(wallMesh);
 
-          // Render Overhead HP Bar on Wall if Damaged
           if (wData && wData.hp < wData.maxHp && isVisible) {
             const hpMat = new THREE.SpriteMaterial({
               map: createHpBarTexture(wData.name, wData.hp, wData.maxHp),
@@ -200,7 +195,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     }
 
-    // Render Stairs 🪜 Billboard
+    // Render Stairs 🪜
     if (nightVision || visibleGrid[stairsPos.y]?.[stairsPos.x] || visitedGrid[stairsPos.y]?.[stairsPos.x]) {
       const stairMat = new THREE.SpriteMaterial({
         map: createEmojiTexture('🪜'),
@@ -214,7 +209,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       group.add(stairSprite);
     }
 
-    // Render Items Billboards
+    // Render Items
     items.forEach((item) => {
       if (nightVision || visibleGrid[item.y]?.[item.x]) {
         const itemMat = new THREE.SpriteMaterial({
@@ -230,7 +225,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render Friendly NPCs Billboards & Tag
+    // Render NPCs
     npcs.forEach((npc) => {
       if (nightVision || visibleGrid[npc.y]?.[npc.x]) {
         const npcMat = new THREE.SpriteMaterial({
@@ -257,34 +252,34 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render Companion Pet Billboard & Tag
-    if (companion) {
-      if (nightVision || visibleGrid[companion.y]?.[companion.x]) {
+    // Render All Active Companion Pets 🐾
+    activePets.forEach((pet) => {
+      if (nightVision || visibleGrid[pet.y]?.[pet.x]) {
         const petMat = new THREE.SpriteMaterial({
-          map: createEmojiTexture(companion.emoji),
+          map: createEmojiTexture(pet.emoji),
           transparent: true,
         });
         const petSprite = new THREE.Sprite(petMat);
         petSprite.center.set(0.5, 0.2);
-        petSprite.position.set(companion.x, 0.65, companion.y);
+        petSprite.position.set(pet.x, 0.65, pet.y);
         petSprite.scale.set(1.15, 1.15, 1);
         petSprite.renderOrder = 20;
         group.add(petSprite);
 
         const tagMat = new THREE.SpriteMaterial({
-          map: createHpBarTexture(`${companion.name} Lv.${companion.level}`, companion.hp, companion.maxHp),
+          map: createHpBarTexture(`${pet.name} Lv.${pet.level}`, pet.hp, pet.maxHp),
           transparent: true,
           depthTest: false,
         });
         const tagSprite = new THREE.Sprite(tagMat);
-        tagSprite.position.set(companion.x, 1.4, companion.y);
+        tagSprite.position.set(pet.x, 1.4, pet.y);
         tagSprite.scale.set(1.4, 0.35, 1);
         tagSprite.renderOrder = 30;
         group.add(tagSprite);
       }
-    }
+    });
 
-    // Render Enemies Billboards & HP Tag
+    // Render Enemies
     enemies.forEach((enemy) => {
       if (nightVision || visibleGrid[enemy.y]?.[enemy.x]) {
         const enemyMat = new THREE.SpriteMaterial({
@@ -312,7 +307,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render Player Billboard 🥺 & HP Tag
+    // Render Player 🥺
     const playerMat = new THREE.SpriteMaterial({
       map: createEmojiTexture(player.emoji),
       transparent: true,

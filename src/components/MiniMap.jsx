@@ -1,8 +1,9 @@
 import React from 'react';
 
 export function MiniMap({ gameState, hasNightVision }) {
-  const { grid, visitedGrid, visibleGrid, player, companion, enemies, npcs, stairsPos } = gameState;
+  const { grid, visitedGrid, visibleGrid, player, companion, companions, enemies, npcs, stairsPos } = gameState;
   const size = grid.length;
+  const activePets = companions || (companion ? [companion] : []);
 
   return (
     <div className="absolute top-14 right-3 bg-black/75 border border-gray-600 p-1 rounded shadow-xl z-20 pointer-events-none">
@@ -24,7 +25,7 @@ export function MiniMap({ gameState, hasNightVision }) {
 
             // Check Entities
             const isPlayer = player.x === x && player.y === y;
-            const isCompanion = companion && companion.x === x && companion.y === y;
+            const isCompanion = activePets.some((c) => c.x === x && c.y === y);
             const isStairs = stairsPos.x === x && stairsPos.y === y;
             const isNpc = npcs.some((n) => n.x === x && n.y === y);
             const enemyHere = enemies.find((e) => e.x === x && e.y === y);

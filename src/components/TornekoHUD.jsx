@@ -1,7 +1,8 @@
 import React from 'react';
 
 export function TornekoHUD({ gameState }) {
-  const { floor, player, companion, gold } = gameState;
+  const { floor, player, companion, companions, gold } = gameState;
+  const activePets = companions || (companion ? [companion] : []);
 
   return (
     <div className="w-full bg-black border-b-2 border-white px-3 py-1.5 font-retro text-xs sm:text-sm text-white flex flex-wrap items-center justify-between shadow-lg select-none z-20">
@@ -46,12 +47,15 @@ export function TornekoHUD({ gameState }) {
         <span className="text-gray-300">⚔️{player.atk}</span>
         <span className="text-gray-300">🛡️{player.def}</span>
 
-        {/* Companion Pet Status */}
-        {companion && (
-          <div className="flex items-center space-x-1 border-l border-gray-700 pl-2 text-green-400">
-            <span>{companion.emoji}</span>
-            <span className="text-[11px]">{companion.name} Lv.{companion.level}</span>
-            <span className="text-[10px] text-gray-300">({companion.hp}/{companion.maxHp})</span>
+        {/* Companion Pets Status (Up to 3) */}
+        {activePets.length > 0 && (
+          <div className="flex items-center space-x-2 border-l border-gray-700 pl-2 text-green-400">
+            {activePets.map((pet) => (
+              <div key={pet.id} className="flex items-center space-x-0.5">
+                <span>{pet.emoji}</span>
+                <span className="text-[10px] text-gray-300">({pet.hp}/{pet.maxHp})</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
