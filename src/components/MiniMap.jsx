@@ -5,13 +5,16 @@ export function MiniMap({ gameState, hasNightVision }) {
   const size = grid.length;
   const activePets = companions || (companion ? [companion] : []);
 
+  // Dynamically scale cell size (px) so large maps fit in the minimap container
+  const cellSizePx = Math.max(2.5, Math.min(6, Math.floor(130 / size)));
+
   return (
-    <div className="absolute top-14 right-3 bg-black/75 border border-gray-600 p-1 rounded shadow-xl z-20 pointer-events-none">
+    <div className="absolute top-14 right-3 bg-black/80 border border-gray-600 p-1 rounded shadow-xl z-20 pointer-events-none max-w-[160px] max-h-[160px] overflow-hidden">
       <div
         className="grid gap-[1px]"
         style={{
-          gridTemplateColumns: `repeat(${size}, 6px)`,
-          gridTemplateRows: `repeat(${size}, 6px)`,
+          gridTemplateColumns: `repeat(${size}, ${cellSizePx}px)`,
+          gridTemplateRows: `repeat(${size}, ${cellSizePx}px)`,
         }}
       >
         {grid.map((row, y) =>
@@ -20,7 +23,13 @@ export function MiniMap({ gameState, hasNightVision }) {
             const isVisited = visitedGrid[y]?.[x];
 
             if (!isVisible && !isVisited) {
-              return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-black/90" />;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className="bg-black/90"
+                />
+              );
             }
 
             // Check Entities
@@ -31,30 +40,67 @@ export function MiniMap({ gameState, hasNightVision }) {
             const enemyHere = enemies.find((e) => e.x === x && e.y === y);
 
             if (isPlayer) {
-              return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-blue-400 rounded-full animate-ping" />;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className="bg-blue-400 rounded-full animate-ping"
+                />
+              );
             }
             if (isCompanion && isVisible) {
-              return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-green-400 rounded-full" />;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className="bg-green-400 rounded-full"
+                />
+              );
             }
             if (isStairs && (isVisible || isVisited)) {
-              return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-yellow-400" />;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className="bg-yellow-400"
+                />
+              );
             }
             if (enemyHere && isVisible) {
               return (
                 <div
                   key={`${x}-${y}`}
-                  className={`w-[6px] h-[6px] rounded-full ${enemyHere.isBoss ? 'bg-purple-500 animate-pulse' : 'bg-red-500'}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className={`rounded-full ${enemyHere.isBoss ? 'bg-purple-500 animate-pulse' : 'bg-red-500'}`}
                 />
               );
             }
             if (isNpc && isVisible) {
-              return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-emerald-400" />;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className="bg-emerald-400"
+                />
+              );
             }
 
             if (cell === 'W') {
-              return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-gray-700" />;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                  className="bg-gray-700"
+                />
+              );
             }
-            return <div key={`${x}-${y}`} className="w-[6px] h-[6px] bg-gray-900" />;
+            return (
+              <div
+                key={`${x}-${y}`}
+                style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
+                className="bg-gray-900"
+              />
+            );
           })
         )}
       </div>

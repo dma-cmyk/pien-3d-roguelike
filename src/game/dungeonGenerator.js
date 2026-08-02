@@ -1,16 +1,14 @@
 import { MONSTER_TEMPLATES, FRIENDLY_NPCS, ENCHANTMENTS, WALL_TYPES } from './typesAndConstants';
 
+// 1 Floor = +1 Grid Dimension Expansion (1F: 16x16, 2F: 17x17, 10F: 25x25, 20F: 35x35, 50F: 65x65...)
 export function getMapSizeForFloor(floorNumber) {
-  if (floorNumber <= 3) return 16;
-  if (floorNumber <= 6) return 20;
-  if (floorNumber <= 9) return 24;
-  return 28; // Deepest floors
+  return 16 + (floorNumber - 1);
 }
 
 export function generateDungeonFloor(floorNumber) {
   const mapSize = getMapSizeForFloor(floorNumber);
 
-  // Initialize Empty Grids with Dynamic Map Size
+  // Initialize Empty Grids with Per-Floor Incremental Map Size
   const grid = Array(mapSize)
     .fill(null)
     .map(() => Array(mapSize).fill('W'));
@@ -29,11 +27,11 @@ export function generateDungeonFloor(floorNumber) {
 
   const rooms = [];
   const minRoomSize = 4;
-  const maxRoomSize = floorNumber <= 3 ? 7 : floorNumber <= 6 ? 9 : 11;
-  const targetRoomCount = floorNumber <= 3 ? 5 : floorNumber <= 6 ? 7 : 9;
+  const maxRoomSize = Math.min(16, 6 + Math.floor(floorNumber * 0.35));
+  const targetRoomCount = 4 + Math.floor(floorNumber * 0.45);
 
   // Generate Rooms
-  for (let i = 0; i < targetRoomCount * 4 && rooms.length < targetRoomCount; i++) {
+  for (let i = 0; i < targetRoomCount * 5 && rooms.length < targetRoomCount; i++) {
     const w = minRoomSize + Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1));
     const h = minRoomSize + Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1));
     const x = 1 + Math.floor(Math.random() * (mapSize - w - 2));
@@ -147,7 +145,7 @@ export function generateDungeonFloor(floorNumber) {
   };
 
   const items = [];
-  const itemCount = 5 + Math.floor(floorNumber * 1.2);
+  const itemCount = 5 + Math.floor(floorNumber * 1.5);
   for (let i = 0; i < itemCount; i++) {
     const pos = getEmptyFloor();
     items.push(generateRandomItem(pos.x, pos.y, floorNumber));
@@ -172,7 +170,7 @@ export function generateDungeonFloor(floorNumber) {
   }
 
   const enemies = [];
-  const enemyCount = 3 + Math.floor(floorNumber * 1.8);
+  const enemyCount = 3 + Math.floor(floorNumber * 2.0);
   const eligibleMonsters = MONSTER_TEMPLATES.filter(
     (m) => floorNumber >= m.minFloor && floorNumber <= m.maxFloor + 2
   );
@@ -182,7 +180,7 @@ export function generateDungeonFloor(floorNumber) {
   if (floorNumber >= 2 && Math.random() < 0.25 && rooms.length >= 3) {
     monsterHouseRoom = rooms[1 + Math.floor(Math.random() * (rooms.length - 2))];
 
-    const mhMonsterCount = 6 + Math.floor(floorNumber * 0.8);
+    const mhMonsterCount = 6 + Math.floor(floorNumber * 1.0);
     for (let i = 0; i < mhMonsterCount; i++) {
       const template = eligibleMonsters[Math.floor(Math.random() * eligibleMonsters.length)] || MONSTER_TEMPLATES[0];
       const pos = getEmptyFloorInRoom(monsterHouseRoom);
@@ -201,7 +199,7 @@ export function generateDungeonFloor(floorNumber) {
       });
     }
 
-    const mhItemCount = 5 + Math.floor(floorNumber * 0.5);
+    const mhItemCount = 5 + Math.floor(floorNumber * 0.8);
     for (let i = 0; i < mhItemCount; i++) {
       const pos = getEmptyFloorInRoom(monsterHouseRoom);
       items.push(generateRandomItem(pos.x, pos.y, floorNumber));
