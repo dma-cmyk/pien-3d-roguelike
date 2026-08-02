@@ -183,7 +183,6 @@ export default function App() {
     }
   };
 
-  // SWAP POSITION WITH ADJACENT PET
   const handleSwapPositionWithPet = (targetPet) => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -207,7 +206,6 @@ export default function App() {
     addLog(`🔄 ${player.name} は ${pet.emoji} ${pet.name} と位置を入れ替えた！`);
     sounds.playSelect();
 
-    // Turn progresses after swap
     processTurnAfterAction(state);
   };
 
@@ -233,7 +231,6 @@ export default function App() {
           executePlayerAttack(state, enemyHere);
           turnActionTaken = true;
         } else if (companionHere) {
-          // SWAP POSITION WITH PET WHEN MOVING INTO ITS TILE
           const tempX = player.x;
           const tempY = player.y;
 
@@ -620,6 +617,17 @@ export default function App() {
       } else {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
       }
+    } else if (item.type === 'RAGE_POTION' || item.name.includes('狂乱')) {
+      // BERSERKER RAGE POTION EFFECT
+      const atkBoost = 15;
+      player.atk += atkBoost;
+      player.hp = player.maxHp; // Full HP heal
+      companions.forEach((c) => {
+        c.atk += 5;
+        c.hp = c.maxHp;
+      });
+      addLog(`🩸 狂乱の薬を飲み干した！ 全身に血の気が巡り、攻撃力が +${atkBoost} 激増＆HPが全回復した！ (ATK: ${player.atk})`);
+      sounds.playFanfare();
     } else if (item.type === 'FOOD' || item.foodRestore > 0 || item.name.includes('パン')) {
       const restoreAmount = item.foodRestore || 40;
       player.food = Math.min(100, player.food + restoreAmount);
