@@ -351,8 +351,10 @@ export default function App() {
   const processTurnAfterAction = (state) => {
     let { player, monsterHouseRoom, inventory } = state;
 
-    // ARTIFACT PASSIVE: PHILOSOPHER'S STONE (👑 賢者の石)
-    const hasPhilosopherStone = inventory.some((i) => i.type === 'PHILOSOPHER_STONE');
+    // ARTIFACT PASSIVE: PHILOSOPHER'S STONE (👑 賢者の石 or 覚醒神具)
+    const hasPhilosopherStone = inventory.some(
+      (i) => i.type === 'PHILOSOPHER_STONE' || i.name.includes('覚醒神具')
+    );
     if (hasPhilosopherStone) {
       player.hp = Math.min(player.maxHp, player.hp + 2);
       player.food = 100;
@@ -734,7 +736,7 @@ export default function App() {
     setActiveModal('JAR_INPUT');
   };
 
-  // PUT ITEM INTO JAR LOGIC (SYNTHESIS, IDENTIFY, CHANGE, STORAGE)
+  // PUT ITEM INTO JAR LOGIC (SYNTHESIS, ARTIFACT FUSION, IDENTIFY, CHANGE, STORAGE)
   const handlePutItemIntoJar = (targetItem) => {
     if (!gameState || !selectedJar) return;
     const state = { ...gameState };
@@ -766,22 +768,39 @@ export default function App() {
 
       // If at least 2 items in Synthesis Jar, combine them!
       if (selectedJar.contents.length >= 2) {
-        const baseItem = { ...selectedJar.contents[0] };
-        for (let i = 1; i < selectedJar.contents.length; i++) {
-          const subItem = selectedJar.contents[i];
-          baseItem.atkBonus = (baseItem.atkBonus || 0) + (subItem.atkBonus || 0);
-          baseItem.defBonus = (baseItem.defBonus || 0) + (subItem.defBonus || 0);
+        const hasArtifact = selectedJar.contents.some((i) => i.category === 'ARTIFACT');
+        let baseItem = { ...selectedJar.contents[0] };
 
-          const combinedEnchants = new Set([...(baseItem.enchantments || []), ...(subItem.enchantments || [])]);
-          baseItem.enchantments = Array.from(combinedEnchants);
-          baseItem.name = `✨ 合成済 ${baseItem.name} (+${baseItem.atkBonus || baseItem.defBonus})`;
+        if (hasArtifact) {
+          // ARTIFACT FUSION (神器合体覚醒!)
+          baseItem.atkBonus = (baseItem.atkBonus || 10) + 50;
+          baseItem.defBonus = (baseItem.defBonus || 10) + 30;
+          baseItem.enchantments = ['全知全能', '暗視', '魔法反射', '狂乱', '吸血', '採掘強化'];
+          baseItem.type = 'PHILOSOPHER_STONE';
+          baseItem.name = `🔥 覚醒神具 ${baseItem.name.replace(/✨ 合成済 /g, '')} (神の威光)`;
+
+          state.inventory = state.inventory.filter((i) => i.id !== selectedJar.id);
+          state.inventory.push(baseItem);
+          addLog(`🌟【神器合体・覚醒】 🏺 ${selectedJar.name} の中で神器の聖なる光が武具と融合！！ 【${baseItem.name} (ATK+${baseItem.atkBonus} DEF+${baseItem.defBonus})】 が神々しく爆誕した！！`);
+          sounds.playFanfare();
+        } else {
+          // Standard Equipment Synthesis
+          for (let i = 1; i < selectedJar.contents.length; i++) {
+            const subItem = selectedJar.contents[i];
+            baseItem.atkBonus = (baseItem.atkBonus || 0) + (subItem.atkBonus || 0);
+            baseItem.defBonus = (baseItem.defBonus || 0) + (subItem.defBonus || 0);
+
+            const combinedEnchants = new Set([...(baseItem.enchantments || []), ...(subItem.enchantments || [])]);
+            baseItem.enchantments = Array.from(combinedEnchants);
+            baseItem.name = `✨ 合成済 ${baseItem.name.replace(/✨ 合成済 /g, '')} (+${baseItem.atkBonus || baseItem.defBonus})`;
+          }
+
+          state.inventory = state.inventory.filter((i) => i.id !== selectedJar.id);
+          state.inventory.push(baseItem);
+          addLog(`💥 🏺 ${selectedJar.name} が輝きと共に弾け飛び、超強化された【${baseItem.name}】が完成した！ (ATK+${baseItem.atkBonus || 0} DEF+${baseItem.defBonus || 0})`);
+          sounds.playFanfare();
         }
 
-        // Consume Jar and give synthesized result
-        state.inventory = state.inventory.filter((i) => i.id !== selectedJar.id);
-        state.inventory.push(baseItem);
-        addLog(`💥 🏺 ${selectedJar.name} が輝きと共に弾け飛び、超強化された【${baseItem.name}】が完成した！ (ATK+${baseItem.atkBonus || 0} DEF+${baseItem.defBonus || 0})`);
-        sounds.playFanfare();
         setActiveModal('INVENTORY');
         setGameState(state);
         return;
@@ -825,7 +844,7 @@ export default function App() {
       sounds.playFanfare();
       setActiveModal('VICTORY');
       return;
-    } else if (item.type === 'PHILOSOPHER_STONE') {
+    } else if (item.type === 'PHILOSOPHER_STONE' || item.name.includes('覚醒神具')) {
       addLog(`👑 ${item.name} は持っているだけで毎ターンHPが全快近く自動回復し、空腹が一切なくなります！`);
       sounds.playHeal();
       return;
