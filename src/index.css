@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-dot {
+    font-family: 'DotGothic16', monospace, sans-serif;
+  }
+  .font-retro {
+    font-family: 'Press Start 2P', 'DotGothic16', monospace, sans-serif;
+  }
+  .retro-border {
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 2px #000000, inset 0 0 0 2px #000000;
+  }
+  .retro-border-gold {
+    border: 3px solid #fbbf24;
+    box-shadow: 0 0 0 2px #000000, inset 0 0 0 2px #000000;
+  }
+  .text-shadow-retro {
+    text-shadow: 2px 2px 0px #000000;
+  }
+}
+
+/* Custom scrollbar for log window */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
