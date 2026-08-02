@@ -268,7 +268,7 @@ export function generateRandomItem(x, y, floorNumber) {
       emoji: isMeat ? '🥩' : '📖',
       category: isMeat ? 'CONSUMABLE' : 'SPELLBOOK',
       type: 'TAME',
-      uses: 3,
+      uses: 3, // 3 times uses
       isIdentified: true,
     };
   } else if (rand < 0.75) {
@@ -292,6 +292,7 @@ export function generateRandomItem(x, y, floorNumber) {
       emoji: '📜',
       category: 'SPELLBOOK',
       type: 'SPELLBOOK',
+      uses: 4, // 4 times uses (Area Damage Spell)
       isIdentified: true,
     };
   } else {

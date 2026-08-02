@@ -268,8 +268,20 @@ export default function App() {
             if (itemIdx >= 0) {
               const pickedItem = items[itemIdx];
               items.splice(itemIdx, 1);
-              state.inventory.push(pickedItem);
-              addLog(`✨ ${pickedItem.emoji} ${pickedItem.name} を手に入れた！`);
+
+              // STACK SYSTEM FOR SPELLBOOKS / CONSUMABLES WITH USES
+              const existingItem = state.inventory.find(
+                (i) => i.name === pickedItem.name && i.category === pickedItem.category && (i.uses !== undefined || pickedItem.uses !== undefined)
+              );
+
+              if (existingItem) {
+                existingItem.uses = (existingItem.uses || 1) + (pickedItem.uses || 1);
+                addLog(`✨ ${pickedItem.emoji} ${pickedItem.name} を手に入れ、スタック統合した！ (計 ${existingItem.uses} 回分)`);
+              } else {
+                state.inventory.push(pickedItem);
+                const usesInfo = pickedItem.uses ? ` [回数: ${pickedItem.uses}]` : '';
+                addLog(`✨ ${pickedItem.emoji} ${pickedItem.name}${usesInfo} を手に入れた！`);
+              }
               sounds.playHeal();
             }
 
@@ -469,8 +481,18 @@ export default function App() {
       if (floorItemIdx >= 0) {
         const pickedItem = items[floorItemIdx];
         items.splice(floorItemIdx, 1);
-        companion.inventory.push(pickedItem);
-        addLog(`✨ 🐾 ${companion.name} は ${pickedItem.emoji} ${pickedItem.name} を拾った！`);
+
+        const existingItem = companion.inventory.find(
+          (i) => i.name === pickedItem.name && (i.uses !== undefined || pickedItem.uses !== undefined)
+        );
+
+        if (existingItem) {
+          existingItem.uses = (existingItem.uses || 1) + (pickedItem.uses || 1);
+          addLog(`✨ 🐾 ${companion.name} は ${pickedItem.emoji} ${pickedItem.name} を拾ってスタック合算した！`);
+        } else {
+          companion.inventory.push(pickedItem);
+          addLog(`✨ 🐾 ${companion.name} は ${pickedItem.emoji} ${pickedItem.name} を拾った！`);
+        }
         sounds.playHeal();
       }
 
@@ -679,6 +701,7 @@ export default function App() {
         sounds.playFanfare();
       } else {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
+        return; // Don't consume if failed
       }
     } else if (item.type === 'RAGE_POTION' || item.name.includes('狂乱')) {
       const atkBoost = 15;
@@ -707,12 +730,22 @@ export default function App() {
       const enemyNear = state.enemies[0];
       if (enemyNear) {
         enemyNear.hp -= 30;
-        addLog(`✨ 魔法の発動！ ${enemyNear.name} に 30 ダメージ！`);
+        addLog(`✨ 魔法の発動！ ${item.name} を唱え、${enemyNear.name} に 30 ダメージ！`);
+        sounds.playMagic();
+      } else {
+        addLog(`✨ 魔法の発動！ ${item.name} を唱えて空に魔法の光を放った！`);
         sounds.playMagic();
       }
     }
 
-    state.inventory = inventory.filter((i) => i.id !== item.id);
+    // ITEM CONSUMPTION & STACK USES DECREMENT LOGIC
+    if (item.uses && item.uses > 1) {
+      item.uses -= 1;
+      addLog(`📜 ${item.name} の使用回数が消費された (残り: ${item.uses} 回)`);
+    } else {
+      state.inventory = inventory.filter((i) => i.id !== item.id);
+    }
+
     setGameState(state);
   };
 
@@ -728,7 +761,7 @@ export default function App() {
     if (item.category === 'MONEY') price = item.amount || 100;
     else if (item.category === 'EQUIPMENT') price = 80;
     else if (item.category === 'JAR') price = 60;
-    else if (item.category === 'SPELLBOOK') price = 50;
+    else if (item.category === 'SPELLBOOK') price = 50 * (item.uses || 1);
 
     state.gold += price;
     state.inventory = state.inventory.filter((i) => i.id !== item.id);
@@ -931,7 +964,7 @@ export default function App() {
   // CONTINUOUS INFINITE DOUBLE PUSH (勝負継続)
   const handleContinueDoublePush = () => {
     const nextStreak = bjStreakCount + 1;
-    const nextBet = bjPotentialPayout; // Payout becomes next bet
+    const nextBet = bjPotentialPayout;
     const nextPayout = nextBet * 2;
 
     setBjStreakCount(nextStreak);
@@ -1277,7 +1310,7 @@ export default function App() {
                       if (invItem.category === 'MONEY') price = invItem.amount || 100;
                       else if (invItem.category === 'EQUIPMENT') price = 80;
                       else if (invItem.category === 'JAR') price = 60;
-                      else if (invItem.category === 'SPELLBOOK') price = 50;
+                      else if (invItem.category === 'SPELLBOOK') price = 50 * (invItem.uses || 1);
 
                       return (
                         <button
@@ -1285,7 +1318,7 @@ export default function App() {
                           onClick={() => handleSellItemToShop(invItem)}
                           className="py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 rounded flex justify-between px-2 text-[10px]"
                         >
-                          <span>{invItem.emoji} {invItem.name}</span>
+                          <span>{invItem.emoji} {invItem.name} {invItem.uses ? `[回数:${invItem.uses}]` : ''}</span>
                           <span className="text-yellow-300 font-bold">売却: +{price}G</span>
                         </button>
                       );
