@@ -14,6 +14,21 @@ import { TitleModal } from './components/TitleModal';
 const SAVE_KEY = 'pien_roguelike_save_v1';
 const MAX_COMPANIONS = 3;
 
+// Master Catalog for Dynamic Shop Inventory
+const SHOP_MASTER_CATALOG = [
+  { id: 'HERB', name: '薬草', emoji: '🌿', cost: 40, category: 'CONSUMABLE', type: 'HERB', heal: 35 },
+  { id: 'BREAD', name: '高級パン', emoji: '🍞', cost: 35, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 60 },
+  { id: 'MEAT', name: '魔物の肉', emoji: '🥩', cost: 60, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 80 },
+  { id: 'POTION', name: '特効薬', emoji: '🧪', cost: 90, category: 'CONSUMABLE', type: 'POTION', heal: 70 },
+  { id: 'SWORD', name: '鋼鉄の剣', emoji: '⚔️', cost: 120, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 6, enchantments: ['会心'] },
+  { id: 'FLAME_SWORD', name: '炎の剣', emoji: '🗡️', cost: 220, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 10, enchantments: ['火属性'] },
+  { id: 'SHIELD', name: '木の盾', emoji: '🛡️', cost: 100, category: 'EQUIPMENT', type: 'SHIELD', defBonus: 4 },
+  { id: 'MIRROR_SHIELD', name: '鏡の盾', emoji: '🛡️', cost: 200, category: 'EQUIPMENT', type: 'SHIELD', defBonus: 7, enchantments: ['暗視'] },
+  { id: 'IO_SCROLL', name: 'イオの書', emoji: '📜', cost: 160, category: 'SPELLBOOK', type: 'SPELLBOOK', uses: 4 },
+  { id: 'TAME_BOOK', name: 'テイムの書', emoji: '📖', cost: 150, category: 'SPELLBOOK', type: 'TAME', uses: 3 },
+  { id: 'SYNTHESIS_JAR', name: '合成の壺', emoji: '🏺', cost: 150, category: 'JAR', type: 'SYNTHESIS', capacity: 4, contents: [] },
+];
+
 function calcHandScore(hand) {
   let score = 0;
   let aces = 0;
@@ -58,6 +73,7 @@ export default function App() {
   const [selectedPetIdx, setSelectedPetIdx] = useState(0);
   const [newPetName, setNewPetName] = useState('');
   const [mhTriggered, setMhTriggered] = useState(false);
+  const [currentShopCatalog, setCurrentShopCatalog] = useState([]);
 
   // BlackJack State (Infinitely Scalable Double-Push Gamble)
   const [bjPlayerHand, setBjPlayerHand] = useState([]);
@@ -677,6 +693,13 @@ export default function App() {
   const triggerNpcDialogue = async (npc) => {
     sounds.playSelect();
     const speechText = await generateNpcDialogue(npc.emoji, npc.name, gameState);
+
+    // If Shopkeeper, randomly pick 5 items from Master Catalog
+    if (npc.emoji === '👨') {
+      const shuffled = [...SHOP_MASTER_CATALOG].sort(() => 0.5 - Math.random());
+      setCurrentShopCatalog(shuffled.slice(0, 5));
+    }
+
     setNpcSpeech({ npc, text: speechText });
     setActiveModal('NPC_DIALOGUE');
   };
@@ -790,7 +813,6 @@ export default function App() {
     addLog(`💰 ${item.emoji} ${item.name} を道具屋に売却し、${price}G を手に入れた！`);
     sounds.playHeal();
     setGameState(state);
-    // Keep NPC Modal open for continuous selling!
   };
 
   // UPGRADE AT SMITH (Keep modal open for continuous upgrading)
@@ -820,7 +842,6 @@ export default function App() {
     }
     sounds.playMine();
     setGameState(state);
-    // Keep NPC Modal open for continuous upgrading!
   };
 
   // ROULETTE START (Support continuous restart)
@@ -902,23 +923,12 @@ export default function App() {
     addLog(`🔮 鑑定士が手持ちの ${identifiedCount} 個の未識別アイテムを鑑定した！`);
     sounds.playMagic();
     setGameState(state);
-    // Keep NPC Modal open!
   };
 
-  // BUY SHOP ITEM (Keep modal open for continuous buying)
-  const handleBuyShopItem = (itemType) => {
+  // BUY DYNAMIC SHOP ITEM FROM CURRENT CATALOG
+  const handleBuyDynamicShopItem = (item) => {
     if (!gameState) return;
     const state = { ...gameState };
-
-    const shopCatalog = {
-      HERB: { name: '薬草', emoji: '🌿', cost: 40, category: 'CONSUMABLE', type: 'HERB', heal: 35 },
-      BREAD: { name: '高級パン', emoji: '🍞', cost: 35, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 60 },
-      SWORD: { name: '鋼鉄の剣', emoji: '⚔️', cost: 120, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 6, enchantments: ['会心'] },
-      JAR: { name: '合成の壺', emoji: '🏺', cost: 150, category: 'JAR', type: 'SYNTHESIS', capacity: 4, contents: [] },
-    };
-
-    const item = shopCatalog[itemType];
-    if (!item) return;
 
     if (state.gold < item.cost) {
       addLog(`⚠️ ゴールドが足りません！ (${item.name}: ${item.cost}G)`);
@@ -926,11 +936,10 @@ export default function App() {
     }
 
     state.gold -= item.cost;
-    state.inventory.push({ ...item, id: `bought_${Date.now()}` });
+    state.inventory.push({ ...item, id: `bought_${Date.now()}_${Math.random()}` });
     addLog(`💰 ${item.cost}G で ${item.emoji} ${item.name} を購入した！ (残金: ${state.gold}G)`);
     sounds.playHeal();
     setGameState(state);
-    // Keep NPC Modal open for continuous buying!
   };
 
   // FORTUNE TELL (Keep modal open)
@@ -953,7 +962,6 @@ export default function App() {
     addLog('✨ 占い師の千里眼により、現在の階層の全マップと魔物の位置が開示された！');
     sounds.playMagic();
     setGameState(state);
-    // Keep NPC Modal open!
   };
 
   // BLACKJACK INITIAL START
@@ -1129,7 +1137,6 @@ export default function App() {
     addLog(`✨ ${tpl.cost}G を支払って ${tpl.emoji} ${tpl.name} を新しい仲間ペットに雇った！ (計${companions.length}体)`);
     sounds.playFanfare();
     setGameState(state);
-    // Keep NPC Modal open!
   };
 
   // HEAL PET AT TAMER (Keep modal open)
@@ -1150,7 +1157,6 @@ export default function App() {
     addLog(`✨ 50G を支払って ペット全員の傷を治療してもらった！ (全員HP全回復)`);
     sounds.playHeal();
     setGameState(state);
-    // Keep NPC Modal open!
   };
 
   const handleRenamePet = () => {
@@ -1311,27 +1317,25 @@ export default function App() {
                 </button>
               )}
 
-              {/* 👨 道具屋 (Shopkeeper - Continuous Shopping & Selling) */}
+              {/* 👨 道具屋 (Shopkeeper - Dynamic Random Catalog) */}
               {npcSpeech.npc.emoji === '👨' && (
                 <div className="border-t border-gray-700 pt-2 flex flex-col space-y-2 max-h-60 overflow-y-auto pr-1">
-                  <div className="text-yellow-300 font-bold text-[11px]">💰 道具を購入する (連続購入可能):</div>
+                  <div className="text-yellow-300 font-bold text-[11px]">🎲 本日の日替わり商品 (出会うたびに品揃え変化):</div>
                   <div className="grid grid-cols-2 gap-1.5">
-                    <button onClick={() => handleBuyShopItem('HERB')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
-                      <span>🌿 薬草</span><span className="text-yellow-300 font-bold">40G</span>
-                    </button>
-                    <button onClick={() => handleBuyShopItem('BREAD')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
-                      <span>🍞 高級パン</span><span className="text-yellow-300 font-bold">35G</span>
-                    </button>
-                    <button onClick={() => handleBuyShopItem('SWORD')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
-                      <span>⚔️ 鋼鉄の剣</span><span className="text-yellow-300 font-bold">120G</span>
-                    </button>
-                    <button onClick={() => handleBuyShopItem('JAR')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
-                      <span>🏺 合成の壺</span><span className="text-yellow-300 font-bold">150G</span>
-                    </button>
+                    {currentShopCatalog.map((shopItem) => (
+                      <button
+                        key={shopItem.id}
+                        onClick={() => handleBuyDynamicShopItem(shopItem)}
+                        className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]"
+                      >
+                        <span>{shopItem.emoji} {shopItem.name} {shopItem.uses ? `[${shopItem.uses}回]` : ''}</span>
+                        <span className="text-yellow-300 font-bold">{shopItem.cost}G</span>
+                      </button>
+                    ))}
                   </div>
 
                   <div className="text-emerald-300 font-bold text-[11px] pt-2 border-t border-gray-800">
-                    💎 手持ちアイテムを道具屋に売る (連続換金可能):
+                    💎 手持ちアイテムを道具屋に売る (換金):
                   </div>
                   {gameState.inventory.length === 0 ? (
                     <div className="text-gray-500 text-[10px]">売却できるアイテムがありません</div>
