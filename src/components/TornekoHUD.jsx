@@ -47,13 +47,14 @@ export function TornekoHUD({ gameState }) {
         <span className="text-gray-300">⚔️{player.atk}</span>
         <span className="text-gray-300">🛡️{player.def}</span>
 
-        {/* Companion Pets Status (Up to 3) */}
+        {/* Companion Pets Status (Unlimited Multi-Pet Army List) */}
         {activePets.length > 0 && (
-          <div className="flex items-center space-x-2 border-l border-gray-700 pl-2 text-green-400">
+          <div className="flex items-center space-x-1.5 border-l border-gray-700 pl-2 text-green-400 max-w-xs sm:max-w-md overflow-x-auto">
+            <span className="text-[10px] text-yellow-300 font-bold shrink-0">🐾 仲間({activePets.length}):</span>
             {activePets.map((pet) => (
-              <div key={pet.id} className="flex items-center space-x-0.5">
+              <div key={pet.id} className="flex items-center space-x-0.5 shrink-0 bg-gray-900 px-1 py-0.5 rounded border border-gray-800">
                 <span>{pet.emoji}</span>
-                <span className="text-[10px] text-gray-300">({pet.hp}/{pet.maxHp})</span>
+                <span className="text-[9px] text-gray-300">({pet.hp}/{pet.maxHp})</span>
               </div>
             ))}
           </div>

@@ -12,7 +12,8 @@ import { InventoryModal } from './components/InventoryModal';
 import { TitleModal } from './components/TitleModal';
 
 const SAVE_KEY = 'pien_roguelike_save_v1';
-const MAX_COMPANIONS = 3;
+// UNLIMITED PET COMPANIONS (No Limit Multi-Pet Army!)
+const MAX_COMPANIONS = 99999;
 
 // Master Catalog for Dynamic Shop Inventory (with Ego + Material + Artifact Named Items)
 const SHOP_MASTER_CATALOG = [
@@ -711,6 +712,7 @@ export default function App() {
     state.player.y = dungeon.playerSpawn.y;
     setMhTriggered(false);
 
+    // Multi-Pet Follow Array Placement
     state.companions.forEach((c, idx) => {
       c.x = dungeon.playerSpawn.x - (idx + 1);
       c.y = dungeon.playerSpawn.y;
@@ -938,12 +940,9 @@ export default function App() {
           equippedShield: null,
         };
 
-        if (companions.length >= MAX_COMPANIONS) {
-          companions.shift();
-          addLog(`⚠️ 仲間が上限 (${MAX_COMPANIONS}体) を超えたため、最初の仲間とお別れした。`);
-        }
+        // UNLIMITED PETS (NO PUSH-OUT)
         companions.push(newPet);
-        addLog(`✨ ${targetEnemy.emoji} ${targetEnemy.name} が心を開き、新しい仲間ペットになった！`);
+        addLog(`✨ ${targetEnemy.emoji} ${targetEnemy.name} が心を開き、新しい仲間ペットになった！ (大軍団: 計${companions.length}体)`);
         sounds.playFanfare();
       } else {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
@@ -1351,7 +1350,7 @@ export default function App() {
     }
   };
 
-  // BUY PET (Keep modal open for continuous buying)
+  // BUY PET (Keep modal open for continuous buying - UNLIMITED PETS!)
   const handleBuyPetFromNpc = (petType) => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -1373,7 +1372,7 @@ export default function App() {
 
     state.gold -= tpl.cost;
     const newPet = {
-      id: `pet_bought_${Date.now()}`,
+      id: `pet_bought_${Date.now()}_${Math.random()}`,
       name: tpl.name,
       emoji: tpl.emoji,
       x: player.x - 1,
@@ -1389,13 +1388,10 @@ export default function App() {
       equippedShield: null,
     };
 
-    if (companions.length >= MAX_COMPANIONS) {
-      companions.shift();
-      addLog(`⚠️ 仲間が上限 (${MAX_COMPANIONS}体) を超えたため、最初の仲間とお別れした。`);
-    }
+    // UNLIMITED PETS (NO PUSH-OUT)
     companions.push(newPet);
 
-    addLog(`✨ ${tpl.cost}G を支払って ${tpl.emoji} ${tpl.name} を新しい仲間ペットに雇った！ (計${companions.length}体)`);
+    addLog(`✨ ${tpl.cost}G を支払って ${tpl.emoji} ${tpl.name} を新しい仲間ペットに雇った！ (大軍団: 計${companions.length}体)`);
     sounds.playFanfare();
     setGameState(state);
   };
@@ -1415,7 +1411,7 @@ export default function App() {
     companions.forEach((c) => {
       c.hp = c.maxHp;
     });
-    addLog(`✨ 50G を支払って ペット全員の傷を治療してもらった！ (全員HP全回復)`);
+    addLog(`✨ 50G を支払って ペット全員 (${companions.length}体) の傷を治療してもらった！ (全員HP全回復)`);
     sounds.playHeal();
     setGameState(state);
   };
@@ -1535,7 +1531,7 @@ export default function App() {
               onClick={() => handleSwapPositionWithPet()}
               className="px-3 py-2 bg-emerald-700/90 hover:bg-emerald-600 border-2 border-emerald-400 rounded-lg text-white font-bold text-xs shadow-xl active:scale-95 transition-transform flex items-center space-x-1"
             >
-              <span>🔄 位置チェンジ</span>
+              <span>🔄 位置チェンジ ({gameState.companions.length}体)</span>
             </button>
           </div>
         )}
@@ -1726,11 +1722,11 @@ export default function App() {
                 </div>
               )}
 
-              {/* 🧔 魔物使い (Tamer) */}
+              {/* 🧔 魔物使い (Tamer - UNLIMITED PET PURCHASING) */}
               {npcSpeech.npc.emoji === '🧔' && (
                 <div className="border-t border-gray-700 pt-2 flex flex-col space-y-1.5">
                   <div className="text-yellow-300 font-bold text-[11px] mb-1">
-                    🐾 新しいペットを雇う (現在: {gameState.companions.length}/{MAX_COMPANIONS}体):
+                    🐾 新しいペットを連れ出す (現在: {gameState.companions.length}体・無制限!):
                   </div>
                   <button onClick={() => handleBuyPetFromNpc('WOLF')} className="py-1.5 bg-blue-900 hover:bg-blue-800 rounded flex justify-between px-3">
                     <span>🐺 オオカミ (バランス型)</span><span className="text-yellow-300">120G</span>
@@ -1738,7 +1734,7 @@ export default function App() {
                   <button onClick={() => handleBuyPetFromNpc('CAT')} className="py-1.5 bg-purple-900 hover:bg-purple-800 rounded flex justify-between px-3">
                     <span>🐈 キャット (回避重視)</span><span className="text-yellow-300">80G</span>
                   </button>
-                  <button onClick={() => handleBuyPetFromNpc('DRAGON')} className="py-1.5 bg-red-900 hover:bg-red-800 rounded flex justify-between px-3">
+                  <button onClick={() => handleBuyPetFromNpc('DRAGON')} className="py-1.5 bg-red-950 hover:bg-red-900 border border-red-700 rounded flex justify-between px-3">
                     <span>🐉 ベビードラゴン (超強力)</span><span className="text-yellow-300">250G</span>
                   </button>
 
@@ -1747,7 +1743,7 @@ export default function App() {
                       onClick={handleHealPetAtNpc}
                       className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded flex items-center justify-center space-x-1 mt-2"
                     >
-                      <span>💖 50G でペット全員を治療する (全快)</span>
+                      <span>💖 50G でペット全員 ({gameState.companions.length}体) を治療する (全快)</span>
                     </button>
                   )}
                 </div>
@@ -1933,8 +1929,8 @@ export default function App() {
           <div className="bg-gray-900 border-4 border-yellow-400 rounded-xl p-5 max-w-sm w-full text-white text-center font-retro shadow-2xl">
             <h3 className="text-yellow-400 font-bold mb-3">仲間ペットの名前変更 (N)</h3>
 
-            {/* Pet Selector Tabs */}
-            <div className="flex space-x-2 justify-center mb-4">
+            {/* Pet Selector Tabs (Scrollable for Multi-Pet Army) */}
+            <div className="flex space-x-1.5 overflow-x-auto justify-start mb-4 pb-1">
               {gameState.companions.map((pet, idx) => (
                 <button
                   key={pet.id}
@@ -1942,7 +1938,7 @@ export default function App() {
                     setSelectedPetIdx(idx);
                     setNewPetName(pet.name);
                   }}
-                  className={`px-3 py-1.5 rounded border ${
+                  className={`px-3 py-1.5 rounded border whitespace-nowrap text-xs shrink-0 ${
                     selectedPetIdx === idx
                       ? 'bg-yellow-500 text-black font-bold border-yellow-300'
                       : 'bg-gray-800 text-white border-gray-600'
