@@ -181,7 +181,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
 
           if (wData && wData.hp < wData.maxHp && isVisible) {
             const hpMat = new THREE.SpriteMaterial({
-              map: createHpBarTexture(wData.name, wData.hp, wData.maxHp),
+              map: createHpBarTexture(wData.name, wData.hp, wData.maxHp, '#eab308'),
               transparent: true,
               depthTest: false,
             });
@@ -225,7 +225,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render NPCs
+    // Render Friendly NPCs (Cyan / Sky Blue HP bar #06b6d4)
     npcs.forEach((npc) => {
       if (nightVision || visibleGrid[npc.y]?.[npc.x]) {
         const npcMat = new THREE.SpriteMaterial({
@@ -240,7 +240,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
         group.add(npcSprite);
 
         const tagMat = new THREE.SpriteMaterial({
-          map: createHpBarTexture(npc.name, npc.hp, npc.maxHp),
+          map: createHpBarTexture(npc.name, npc.hp, npc.maxHp, '#06b6d4'),
           transparent: true,
           depthTest: false,
         });
@@ -252,7 +252,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render All Active Companion Pets 🐾
+    // Render All Active Companion Pets 🐾 (Emerald Green HP bar #10b981)
     activePets.forEach((pet) => {
       if (nightVision || visibleGrid[pet.y]?.[pet.x]) {
         const petMat = new THREE.SpriteMaterial({
@@ -267,7 +267,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
         group.add(petSprite);
 
         const tagMat = new THREE.SpriteMaterial({
-          map: createHpBarTexture(`${pet.name} Lv.${pet.level}`, pet.hp, pet.maxHp),
+          map: createHpBarTexture(`${pet.name} Lv.${pet.level}`, pet.hp, pet.maxHp, '#10b981'),
           transparent: true,
           depthTest: false,
         });
@@ -279,7 +279,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render Enemies
+    // Render Enemies (Red HP bar #ef4444 for normal enemies, Purple #a855f7 for Bosses)
     enemies.forEach((enemy) => {
       if (nightVision || visibleGrid[enemy.y]?.[enemy.x]) {
         const enemyMat = new THREE.SpriteMaterial({
@@ -294,8 +294,10 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
         enemySprite.renderOrder = 20;
         group.add(enemySprite);
 
+        const hpBarColor = enemy.isBoss ? '#a855f7' : '#ef4444';
+
         const tagMat = new THREE.SpriteMaterial({
-          map: createHpBarTexture(enemy.name, enemy.hp, enemy.maxHp),
+          map: createHpBarTexture(enemy.name, enemy.hp, enemy.maxHp, hpBarColor),
           transparent: true,
           depthTest: false,
         });
@@ -307,7 +309,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render Player 🥺
+    // Render Player 🥺 (Bright Blue HP bar #3b82f6)
     const playerMat = new THREE.SpriteMaterial({
       map: createEmojiTexture(player.emoji),
       transparent: true,
@@ -320,7 +322,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
     group.add(playerSprite);
 
     const playerHpMat = new THREE.SpriteMaterial({
-      map: createHpBarTexture(`${player.name} Lv.${player.level}`, player.hp, player.maxHp),
+      map: createHpBarTexture(`${player.name} Lv.${player.level}`, player.hp, player.maxHp, '#3b82f6'),
       transparent: true,
       depthTest: false,
     });

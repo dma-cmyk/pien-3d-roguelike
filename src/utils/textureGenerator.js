@@ -145,10 +145,10 @@ export function createEmojiTexture(emoji, size = 128) {
 }
 
 /**
- * Generate Overhead HP Bar & Name Tag 3D Sprite Texture
+ * Generate Overhead HP Bar & Name Tag 3D Sprite Texture with Custom Faction Colors
  */
-export function createHpBarTexture(label, hp, maxHp, sizeW = 256, sizeH = 64) {
-  const cacheKey = `hpbar_${label}_${hp}_${maxHp}`;
+export function createHpBarTexture(label, hp, maxHp, barColor = null, sizeW = 256, sizeH = 64) {
+  const cacheKey = `hpbar_${label}_${hp}_${maxHp}_${barColor || 'default'}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey);
 
   const canvas = document.createElement('canvas');
@@ -159,8 +159,8 @@ export function createHpBarTexture(label, hp, maxHp, sizeW = 256, sizeH = 64) {
   ctx.clearRect(0, 0, sizeW, sizeH);
 
   // Background box
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+  ctx.strokeStyle = barColor || '#ffffff';
   ctx.lineWidth = 3;
   ctx.fillRect(0, 0, sizeW, sizeH);
   ctx.strokeRect(0, 0, sizeW, sizeH);
@@ -178,12 +178,16 @@ export function createHpBarTexture(label, hp, maxHp, sizeW = 256, sizeH = 64) {
   const barW = sizeW - 40;
   const barH = 18;
 
-  ctx.fillStyle = '#333333';
+  ctx.fillStyle = '#222222';
   ctx.fillRect(barX, barY, barW, barH);
 
-  // HP Fill
+  // HP Fill Color (Custom Faction Color or Ratio Color)
   const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
-  ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : hpRatio > 0.25 ? '#eab308' : '#ef4444';
+  if (barColor) {
+    ctx.fillStyle = barColor;
+  } else {
+    ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : hpRatio > 0.25 ? '#eab308' : '#ef4444';
+  }
   ctx.fillRect(barX, barY, barW * hpRatio, barH);
 
   // HP Bar Inner Border
