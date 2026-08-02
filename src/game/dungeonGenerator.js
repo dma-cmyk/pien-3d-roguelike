@@ -37,6 +37,14 @@ export const BASE_ITEMS = [
   { name: '鎧', emoji: '🦺', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 5 },
 ];
 
+// LEGENDARY ARTIFACTS
+export const LEGENDARY_ARTIFACTS = [
+  { name: '👑 賢者の石', emoji: '👑', category: 'ARTIFACT', type: 'PHILOSOPHER_STONE', effect: '毎ターンHP自然回復 & 満腹度無限' },
+  { name: '🔱 アテナの神槍', emoji: '🔱', category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 30, defBonus: 5, enchantments: ['全知全能', '会心', '火属性'] },
+  { name: '🔰 イージスの神盾', emoji: '🔰', category: 'EQUIPMENT', type: 'SHIELD', atkBonus: 5, defBonus: 25, enchantments: ['暗視', '魔法反射', '防護'] },
+  { name: '🏆 🥺のぴえんオーブ', emoji: '🏆', category: 'ARTIFACT', type: 'VICTORY_ORB', effect: '持っているだけで迷宮脱出の奇跡を起こす' },
+];
+
 export function generateDungeonFloor(floorNumber) {
   const mapSize = getMapSizeForFloor(floorNumber);
 
@@ -278,6 +286,16 @@ export function generateDungeonFloor(floorNumber) {
 export function generateRandomItem(x, y, floorNumber) {
   const rand = Math.random();
   const id = `item_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+  // Rare Chance for Legendary Artifact Drop (5% on Floor >= 3)
+  if (floorNumber >= 3 && Math.random() < 0.06) {
+    const art = LEGENDARY_ARTIFACTS[Math.floor(Math.random() * LEGENDARY_ARTIFACTS.length)];
+    return {
+      id, x, y,
+      ...art,
+      isIdentified: true,
+    };
+  }
 
   if (rand < 0.2) {
     return { id, x, y, name: 'パン', emoji: '🍞', category: 'CONSUMABLE', type: 'FOOD', foodRestore: 40, isIdentified: true };

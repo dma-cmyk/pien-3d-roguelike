@@ -14,7 +14,7 @@ import { TitleModal } from './components/TitleModal';
 const SAVE_KEY = 'pien_roguelike_save_v1';
 const MAX_COMPANIONS = 3;
 
-// Master Catalog for Dynamic Shop Inventory (with Ego + Material Named Items)
+// Master Catalog for Dynamic Shop Inventory (with Ego + Material + Artifact Named Items)
 const SHOP_MASTER_CATALOG = [
   { id: 'HERB', name: '薬草', emoji: '🌿', cost: 40, category: 'CONSUMABLE', type: 'HERB', heal: 35 },
   { id: 'BREAD', name: '高級パン', emoji: '🍞', cost: 35, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 60 },
@@ -29,6 +29,7 @@ const SHOP_MASTER_CATALOG = [
   { id: 'IO_SCROLL', name: 'イオの書', emoji: '📜', cost: 160, category: 'SPELLBOOK', type: 'SPELLBOOK', uses: 4 },
   { id: 'TAME_BOOK', name: 'テイムの書', emoji: '📖', cost: 150, category: 'SPELLBOOK', type: 'TAME', uses: 3 },
   { id: 'SYNTHESIS_JAR', name: '合成の壺', emoji: '🏺', cost: 150, category: 'JAR', type: 'SYNTHESIS', capacity: 4, contents: [] },
+  { id: 'ART_PHILOSOPHER', name: '👑 賢者の石', emoji: '👑', cost: 800, category: 'ARTIFACT', type: 'PHILOSOPHER_STONE', effect: '毎ターンHP自然回復 & 満腹度無限' },
 ];
 
 function calcHandScore(hand) {
@@ -290,6 +291,12 @@ export default function App() {
               const pickedItem = items[itemIdx];
               items.splice(itemIdx, 1);
 
+              // ARTIFACT PICKUP LOGIC
+              if (pickedItem.category === 'ARTIFACT') {
+                addLog(`🏆 🌟 伝説の神器 ${pickedItem.emoji} ${pickedItem.name} を手に入れた！！ (${pickedItem.effect})`);
+                sounds.playFanfare();
+              }
+
               // STACK SYSTEM FOR SPELLBOOKS / MATERIALS / CONSUMABLES WITH USES
               const existingItem = state.inventory.find(
                 (i) => i.name === pickedItem.name && i.category === pickedItem.category
@@ -301,9 +308,11 @@ export default function App() {
               } else {
                 state.inventory.push(pickedItem);
                 const usesInfo = pickedItem.uses ? ` [${pickedItem.uses}個]` : '';
-                addLog(`✨ ${pickedItem.emoji} ${pickedItem.name}${usesInfo} を手に入れた！`);
+                if (pickedItem.category !== 'ARTIFACT') {
+                  addLog(`✨ ${pickedItem.emoji} ${pickedItem.name}${usesInfo} を手に入れた！`);
+                  sounds.playHeal();
+                }
               }
-              sounds.playHeal();
             }
 
             if (targetX === stairsPos.x && targetY === stairsPos.y) {
@@ -338,15 +347,23 @@ export default function App() {
   };
 
   const processTurnAfterAction = (state) => {
-    let { player, monsterHouseRoom } = state;
-    player.food = Math.max(0, player.food - 1);
-    if (player.food === 0) {
-      player.hp -= 2;
-      addLog('⚠️ お腹が空きすぎてダメージを受けた！');
-      sounds.playHit();
-      if (player.hp <= 0) {
-        handleGameOver('餓死してしまった…');
-        return;
+    let { player, monsterHouseRoom, inventory } = state;
+
+    // ARTIFACT PASSIVE: PHILOSOPHER'S STONE (👑 賢者の石)
+    const hasPhilosopherStone = inventory.some((i) => i.type === 'PHILOSOPHER_STONE');
+    if (hasPhilosopherStone) {
+      player.hp = Math.min(player.maxHp, player.hp + 2);
+      player.food = 100;
+    } else {
+      player.food = Math.max(0, player.food - 1);
+      if (player.food === 0) {
+        player.hp -= 2;
+        addLog('⚠️ お腹が空きすぎてダメージを受けた！');
+        sounds.playHit();
+        if (player.hp <= 0) {
+          handleGameOver('餓死してしまった…');
+          return;
+        }
       }
     }
 
@@ -714,7 +731,16 @@ export default function App() {
     const state = { ...gameState };
     const { player, companions, inventory, enemies } = state;
 
-    if (item.type === 'TAME') {
+    if (item.type === 'VICTORY_ORB') {
+      addLog(`🏆 ${item.name} をかかげ、迷宮完全脱出の奇跡を起こした！`);
+      sounds.playFanfare();
+      setActiveModal('VICTORY');
+      return;
+    } else if (item.type === 'PHILOSOPHER_STONE') {
+      addLog(`👑 ${item.name} は持っているだけで毎ターンHPが全快近く自動回復し、空腹が一切なくなります！`);
+      sounds.playHeal();
+      return;
+    } else if (item.type === 'TAME') {
       const frontX = player.x + player.facing.x;
       const frontY = player.y + player.facing.y;
       const targetEnemy = enemies.find((e) => e.x === frontX && e.y === frontY);
@@ -809,6 +835,7 @@ export default function App() {
 
     let price = 30;
     if (item.category === 'MONEY') price = item.amount || 100;
+    else if (item.category === 'ARTIFACT') price = 500;
     else if (item.category === 'MATERIAL') price = 40 * (item.uses || 1);
     else if (item.category === 'EQUIPMENT') price = 80;
     else if (item.category === 'JAR') price = 60;
@@ -1424,6 +1451,7 @@ export default function App() {
                     gameState.inventory.map((invItem) => {
                       let price = 30;
                       if (invItem.category === 'MONEY') price = invItem.amount || 100;
+                      else if (invItem.category === 'ARTIFACT') price = 500;
                       else if (invItem.category === 'MATERIAL') price = 40 * (invItem.uses || 1);
                       else if (invItem.category === 'EQUIPMENT') price = 80;
                       else if (invItem.category === 'JAR') price = 60;
