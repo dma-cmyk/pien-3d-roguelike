@@ -1,144 +1,182 @@
-// Gemini API Integration (gemini-3.5-flash-lite) with Complete Offline Fallback
+// Gemini API Helper for Dynamic Roguelike Story, Bosses, Dialogues & AI Artifact Generation
 
 const API_KEY_STORAGE_KEY = 'pien_gemini_api_key';
 
 export function getStoredApiKey() {
-  return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+  return localStorage.getItem(API_KEY_STORAGE_KEY) || import.meta.env.VITE_GEMINI_API_KEY || '';
 }
 
 export function storeApiKey(key) {
   if (key) {
-    localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
+    localStorage.setItem(API_KEY_STORAGE_KEY, key);
   } else {
     localStorage.removeItem(API_KEY_STORAGE_KEY);
   }
 }
 
-/**
- * Call Gemini API with direct fetch
- */
-async function callGeminiApi(prompt) {
+export async function generateBossData(floorNumber) {
   const apiKey = getStoredApiKey();
-  if (!apiKey) throw new Error('No API Key');
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: 300,
-        temperature: 0.8,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gemini API Error: ${response.statusText}`);
+  if (!apiKey) {
+    return getFallbackBoss(floorNumber);
   }
 
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  return text.trim();
-}
-
-/**
- * Fallback Boss Data Generator
- */
-const DEFAULT_BOSSES = {
-  5: {
-    name: '迷宮の中ボス ぴえん魔王',
-    emoji: '👹',
-    quote: 'よくぞここまで辿り着いたぴえん！貴様の冒険もここまでだ！',
-    hp: 150,
-    atk: 18,
-    def: 8,
-  },
-  10: {
-    name: '混沌の邪神 ぴえんドラゴン',
-    emoji: '🐉',
-    quote: '我は迷宮の深淵を司る者… ぴえんの涙を喰らい、終焉を与えん！',
-    hp: 350,
-    atk: 32,
-    def: 15,
-  },
-};
-
-/**
- * Generate Boss Data dynamically via Gemini API or return preset
- */
-export async function generateBossData(floor) {
-  const isFinalBoss = floor >= 10;
-  const targetFloorStr = isFinalBoss ? '10階の最終ラスボス' : '5階の中ボス';
-
-  const prompt = `あなたはローグライクRPG『🥺の不思議な迷宮』のダンジョンマスターです。
-${targetFloorStr}のボスキャラクターを1体考案し、以下の形式のJSONのみを出力してください。余計な解説は不要です。
-
-JSONフォーマット例:
+  try {
+    const prompt = `ローグライクRPGの地下${floorNumber}階のボスモンスターを1体考えてください。
+JSONフォーマットのみで返答してください。
+JSON構造:
 {
-  "name": "ボスの名前",
-  "emoji": "👹",
-  "quote": "強烈な決め台詞(30文字以内)",
-  "hp": ${isFinalBoss ? 350 : 150},
-  "atk": ${isFinalBoss ? 30 : 16},
-  "def": ${isFinalBoss ? 14 : 8}
+  "name": "ボス名",
+  "emoji": "ボスを表す絵文字1文字",
+  "hp": ${100 + floorNumber * 35},
+  "atk": ${15 + floorNumber * 4},
+  "def": ${8 + floorNumber * 2},
+  "quote": "ボス登場時の決めセリフ"
+}`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      }
+    );
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text) {
+      return JSON.parse(text);
+    }
+  } catch (err) {
+    console.warn('Gemini API Boss Gen failed, fallback used:', err);
+  }
+  return getFallbackBoss(floorNumber);
 }
 
-ルール:
-- emojiは王道の強そうな絵文字(👹, 🐉, 👿, 💀, 👁️, 🪓)から1つ選択。
-- nameとquoteには「ぴえん」「🥺」「迷宮」を絡めて味わい深くしてください。`;
+export async function generateNpcDialogue(npcEmoji, npcName, gameState) {
+  const apiKey = getStoredApiKey();
+  if (!apiKey) {
+    return getFallbackDialogue(npcEmoji, npcName);
+  }
 
   try {
-    const rawText = await callGeminiApi(prompt);
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
+    const prompt = `あなたはローグライクRPGのNPC「${npcEmoji} ${npcName}」です。
+プレイヤー「${gameState?.playerName || '🥺'}」(地下${gameState?.floor || 1}階、HP:${gameState?.player?.hp}/${gameState?.player?.maxHp}) に話しかけられました。
+世界観に合った個性的でユニークな1〜2文の会話セリフを日本語で作成してください。直テキストのみで返してください。`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    );
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text) {
+      return text.trim();
+    }
+  } catch (err) {
+    console.warn('Gemini API Dialogue Gen failed, fallback used:', err);
+  }
+  return getFallbackDialogue(npcEmoji, npcName);
+}
+
+// DYNAMIC GEMINI AI ARTIFACT GENERATOR
+export async function generateArtifactByGemini(floorNumber, playerName) {
+  const apiKey = getStoredApiKey();
+  if (!apiKey) {
+    return getFallbackArtifact(floorNumber);
+  }
+
+  try {
+    const prompt = `ローグライクRPG「🥺の不思議な迷宮」の地下${floorNumber}階で発見される、世界に一つだけの超ユニークな「伝説のアーティファクト（神器）」を創作してください。
+プレイヤー名: 「${playerName || '🥺'}」
+JSONフォーマットのみで返答してください。
+JSON構造:
+{
+  "name": "神々しい伝説アーティファクト名",
+  "emoji": "適切な絵文字1文字 (👑, 🔮, 🔱, 💎, 🧿, 📿, 🌟など)",
+  "effect": "神秘的な超絶効果のフレーバー説明",
+  "atkBonus": ${20 + floorNumber * 3},
+  "defBonus": ${15 + floorNumber * 2},
+  "enchantments": ["全知全能", "会心", "暗視"]
+}`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      }
+    );
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text) {
+      const parsed = JSON.parse(text);
       return {
-        name: parsed.name || (isFinalBoss ? 'ぴえんドラゴン' : 'ぴえん魔王'),
-        emoji: parsed.emoji || (isFinalBoss ? '🐉' : '👹'),
-        quote: parsed.quote || '我を倒せると思うなよぴえん！',
-        hp: Number(parsed.hp) || (isFinalBoss ? 350 : 150),
-        atk: Number(parsed.atk) || (isFinalBoss ? 30 : 16),
-        def: Number(parsed.def) || (isFinalBoss ? 14 : 8),
+        id: `gemini_art_${Date.now()}`,
+        name: `🤖 AI創世 ${parsed.name}`,
+        emoji: parsed.emoji || '🔮',
+        category: 'ARTIFACT',
+        type: 'PHILOSOPHER_STONE',
+        effect: parsed.effect || 'Gemini AIが創造した神秘の力',
+        atkBonus: parsed.atkBonus || 25,
+        defBonus: parsed.defBonus || 15,
+        enchantments: parsed.enchantments || ['全知全能', '暗視'],
+        isIdentified: true,
       };
     }
   } catch (err) {
-    console.warn('Using default fallback boss due to:', err.message);
+    console.warn('Gemini API Artifact Gen failed, fallback used:', err);
   }
-
-  return DEFAULT_BOSSES[floor] || DEFAULT_BOSSES[5];
+  return getFallbackArtifact(floorNumber);
 }
 
-/**
- * Fallback NPC Dialogues
- */
-const DEFAULT_NPC_DIALOGUES = {
-  '👨': 'いらっしゃい！ダンジョン探索には準備が不可欠だよ。良いアイテムを揃えていきな！',
-  '🧙': 'ふむ…私に任せれば未識別の壺や巻物の真の力を鑑定してあげよう。',
-  '👷': 'カカッ！壁を彫るなら強固な武器と採掘強化のエンチャントが必要だぜ！',
-  '🧕': 'あなたの未来が見える…深層には恐ろしいボスと奇跡の宝が眠っているわ。',
-  '🧔': 'おいおい、可愛いペットを連れているじゃないか！しっかり育てれば頼もしい相棒になるぞ。',
-  '🤵': 'ひひっ！運試しといくかい？一獲千金を狙うなら私とギャンブルしようじゃないか！',
-};
+function getFallbackBoss(floor) {
+  const bosses = [
+    { name: '🔥 獄炎の魔竜', emoji: '🐉', hp: 200, atk: 25, def: 10, quote: '我が炎で灰となるがいい！' },
+    { name: '💀 狂乱のデスロード', emoji: '💀', hp: 350, atk: 35, def: 18, quote: '貴様の魂を我がコレクションに加えよう…' },
+    { name: '👑 迷宮の支配者・ぴえん帝', emoji: '🥺', hp: 600, atk: 50, def: 25, quote: '🥺 迷宮の最深部へよくぞ来た… 我を倒してみせよ！' },
+  ];
+  return bosses[Math.min(bosses.length - 1, Math.floor(floor / 4))];
+}
 
-/**
- * Generate dynamic NPC Dialogue via Gemini API
- */
-export async function generateNpcDialogue(npcEmoji, npcName, gameState) {
-  const { playerName, className, floor, hp, maxHp, companion } = gameState;
-  const petInfo = companion ? `仲間ペット:${companion.name}(Lv.${companion.level})` : '仲間ペット:なし';
+function getFallbackDialogue(emoji, name) {
+  const dialogues = {
+    '👷': 'ワシの鍛冶技術にかかれば、どんな硬い鉄鉱石も最高の武具になるぞい！',
+    '🧙': 'フフフ…手持ちの未識別アイテム、わしが鑑定してやろうか？',
+    '👨': 'いらっしゃい！本日の日替わり商品は自信作ばかりだよ！',
+    '🧕': 'ふむ…あなたの未来が見えます…フロアの全貌を映し出しましょう。',
+    '🤵': 'やあ！倍プッシュで一獲千金を狙ってみないかい？',
+    '🧔': '元気なモンスターをテイムして仲間にしてごらん！',
+  };
+  return dialogues[emoji] || '迷宮の探索、気を付けて進むのじゃぞ！';
+}
 
-  const prompt = `ローグライクRPG『🥺の不思議な迷宮』の友好NPC「${npcName}」として、冒険者の「${playerName}」（職業:${className}, 階層:${floor}F, HP:${hp}/${maxHp}, ${petInfo}）に話しかけるセリフを1言（40文字以内）で生成してください。
-雰囲気は温かく個性的で、レトロローグライクRPG風にしてください。セリフテキストのみを出力してください。`;
-
-  try {
-    const text = await callGeminiApi(prompt);
-    if (text && text.length < 80) return text.replace(/^"|"$/g, '');
-  } catch (err) {
-    console.warn('Using fallback NPC dialogue due to:', err.message);
-  }
-
-  return DEFAULT_NPC_DIALOGUES[npcEmoji] || '無事を祈っているぞ、冒険者よ！';
+function getFallbackArtifact(floor) {
+  return {
+    id: `art_fallback_${Date.now()}`,
+    name: '👑 賢者の石',
+    emoji: '👑',
+    category: 'ARTIFACT',
+    type: 'PHILOSOPHER_STONE',
+    effect: '毎ターンHP自然回復 & 満腹度無限',
+    atkBonus: 15,
+    defBonus: 10,
+    enchantments: ['全知全能', '暗視'],
+    isIdentified: true,
+  };
 }

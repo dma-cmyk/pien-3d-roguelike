@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateDungeonFloor } from './game/dungeonGenerator';
 import { sounds } from './utils/soundEngine';
-import { generateBossData, generateNpcDialogue } from './utils/geminiApi';
+import { generateBossData, generateNpcDialogue, generateArtifactByGemini } from './utils/geminiApi';
 
 import { DungeonCanvas } from './components/DungeonCanvas';
 import { TornekoHUD } from './components/TornekoHUD';
@@ -691,6 +691,19 @@ export default function App() {
       c.y = dungeon.playerSpawn.y;
     });
 
+    // DYNAMIC GEMINI AI ARTIFACT GENERATION ON FLOOR >= 3
+    if (nextFloor >= 3 && Math.random() < 0.4) {
+      const aiArtifact = await generateArtifactByGemini(nextFloor, state.playerName);
+      if (aiArtifact) {
+        state.items.push({
+          ...aiArtifact,
+          x: dungeon.stairsPos.x - 1,
+          y: dungeon.stairsPos.y,
+        });
+        addLog(`🤖 【Gemini AI 創世】 冒険の軌跡に応じて Gemini AI が伝説の神器 【${aiArtifact.name}】 をオンデマンド生み出し、階層に降臨させた！`);
+      }
+    }
+
     if (nextFloor === 5 || nextFloor === 10) {
       const boss = await generateBossData(nextFloor);
       setBossInfo(boss);
@@ -728,6 +741,27 @@ export default function App() {
 
     setNpcSpeech({ npc, text: speechText });
     setActiveModal('NPC_DIALOGUE');
+  };
+
+  // GEMINI AI ON-DEMAND ARTIFACT SUMMON VIA FORTUNE TELLER
+  const handleSummonGeminiArtifactAtFortuneTeller = async () => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    if (state.gold < 200) {
+      addLog('⚠️ ゴールドが足りません！ (祈祷料: 200G)');
+      return;
+    }
+
+    state.gold -= 200;
+    addLog('✨ 🧕 占い師が天に祈りを捧げ、Gemini AI と交信している…');
+    sounds.playMagic();
+
+    const aiArtifact = await generateArtifactByGemini(state.floor, state.playerName);
+    state.inventory.push(aiArtifact);
+    addLog(`🤖 🌟 【Gemini AI 降臨】 Gemini AI があなたの冒険のために世界に一つの神器 【${aiArtifact.name}】 を特別創世して授けた！！ (${aiArtifact.effect})`);
+    sounds.playFanfare();
+
+    setGameState(state);
   };
 
   // OPEN JAR ITEM SELECTION MODAL
@@ -1615,14 +1649,22 @@ export default function App() {
                 </div>
               )}
 
-              {/* 🧕 占い師 (Fortune Teller) */}
+              {/* 🧕 占い師 (Fortune Teller & Gemini AI Artifact Summon) */}
               {npcSpeech.npc.emoji === '🧕' && (
-                <button
-                  onClick={handleFortuneTell}
-                  className="w-full py-2.5 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
-                >
-                  <span>✨ 80G で全マップと魔物の位置を占う (透視)</span>
-                </button>
+                <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
+                  <button
+                    onClick={handleFortuneTell}
+                    className="w-full py-2 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
+                  >
+                    <span>✨ 80G で全マップと魔物の位置を占う (透視)</span>
+                  </button>
+                  <button
+                    onClick={handleSummonGeminiArtifactAtFortuneTeller}
+                    className="w-full py-2.5 bg-gradient-to-r from-purple-800 via-pink-700 to-indigo-800 hover:from-purple-700 hover:to-indigo-700 text-yellow-300 font-bold rounded border border-yellow-400 shadow-xl animate-pulse flex items-center justify-center space-x-1"
+                  >
+                    <span>🤖 200G で Gemini AI に祈り、神器を即興創世・降臨させる</span>
+                  </button>
+                </div>
               )}
 
               {/* 🤵 ギャンブラー (Gambler) */}
