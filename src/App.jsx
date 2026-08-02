@@ -59,12 +59,14 @@ export default function App() {
   const [newPetName, setNewPetName] = useState('');
   const [mhTriggered, setMhTriggered] = useState(false);
 
-  // BlackJack State
+  // BlackJack State (Infinitely Scalable Double-Push Gamble)
   const [bjPlayerHand, setBjPlayerHand] = useState([]);
   const [bjDealerHand, setBjDealerHand] = useState([]);
   const [bjStatus, setBjStatus] = useState('BET');
   const [bjResultMsg, setBjResultMsg] = useState('');
   const [bjBetAmount, setBjBetAmount] = useState(100);
+  const [bjStreakCount, setBjStreakCount] = useState(0);
+  const [bjPotentialPayout, setBjPotentialPayout] = useState(200);
 
   // Timing Roulette State
   const [rouletteIndex, setRouletteIndex] = useState(0);
@@ -847,6 +849,7 @@ export default function App() {
     setActiveModal(null);
   };
 
+  // BLACKJACK INITIAL START
   const handleStartBlackjack = () => {
     if (!gameState) return;
     if (gameState.gold < 100) {
@@ -858,12 +861,19 @@ export default function App() {
     state.gold -= 100;
     setGameState(state);
 
+    setBjBetAmount(100);
+    setBjStreakCount(0);
+    setBjPotentialPayout(200);
+
+    startNewBjRound(100, 0);
+  };
+
+  const startNewBjRound = (bet, streak) => {
     const c1 = getRandomCard();
     const c2 = getRandomCard();
     const d1 = getRandomCard();
     const d2 = getRandomCard();
 
-    setBjBetAmount(100);
     setBjPlayerHand([c1, c2]);
     setBjDealerHand([d1, d2]);
     setBjStatus('PLAYING');
@@ -872,36 +882,32 @@ export default function App() {
     sounds.playSelect();
   };
 
-  const handleBjDoublePush = () => {
-    if (!gameState || bjStatus !== 'PLAYING' || bjPlayerHand.length !== 2) return;
-    if (gameState.gold < 100) {
-      addLog('⚠️ 倍プッシュに必要な追加ゴールドが足りません！ (追加100G必要)');
-      return;
-    }
+  // CONTINUOUS INFINITE DOUBLE PUSH (勝負継続)
+  const handleContinueDoublePush = () => {
+    const nextStreak = bjStreakCount + 1;
+    const nextBet = bjPotentialPayout; // Payout becomes next bet
+    const nextPayout = nextBet * 2;
 
-    const state = { ...gameState };
-    state.gold -= 100;
-    setGameState(state);
+    setBjStreakCount(nextStreak);
+    setBjBetAmount(nextBet);
+    setBjPotentialPayout(nextPayout);
 
-    const newBet = bjBetAmount * 2;
-    setBjBetAmount(newBet);
-    addLog(`🔥 賭け金を 2 倍に引き上げる【倍プッシュ】を宣言！ (賭け金: ${newBet}G)`);
+    addLog(`🔥 【${nextStreak}連勝目 倍プッシュ】 賞金 ${nextBet}G をそのまま賭けて勝負継続！ (勝利配当: ${nextPayout}G)`);
     sounds.playFanfare();
 
-    // Hit 1 card & auto-stand
-    const newCard = getRandomCard();
-    const newHand = [...bjPlayerHand, newCard];
-    setBjPlayerHand(newHand);
+    startNewBjRound(nextBet, nextStreak);
+  };
 
-    const pScore = calcHandScore(newHand);
-    if (pScore > 21) {
-      setBjStatus('FINISHED');
-      setBjResultMsg(`💥 倍プッシュ失敗！ バースト (21超過) で ${newBet}G 没収…`);
-      sounds.playHit();
-      addLog(`🎲 倍プッシュ失敗！ バーストにより ${newBet}G 没収…`);
-    } else {
-      resolveBjDealerTurn(newHand, newBet);
-    }
+  // COLLECT EARNED PAYOUT & LEAVE CASINO
+  const handleCollectPayoutAndExit = () => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    state.gold += bjPotentialPayout;
+    setGameState(state);
+
+    addLog(`💰 【利益確定】 ${bjStreakCount} 連勝を達成し、${bjPotentialPayout}G を手に入れて勝負を終えた！`);
+    sounds.playFanfare();
+    setActiveModal(null);
   };
 
   const handleBjHit = () => {
@@ -914,9 +920,9 @@ export default function App() {
     const pScore = calcHandScore(newHand);
     if (pScore > 21) {
       setBjStatus('FINISHED');
-      setBjResultMsg(`💥 バースト！ 21を超えたため ${bjBetAmount}G 没収…`);
+      setBjResultMsg(`💥 バースト！ 21を超えたため ${bjBetAmount}G 没収… (倍プッシュ失敗)`);
       sounds.playHit();
-      addLog(`🎲 ギャンブラーとのブラックジャックに敗北… (${bjBetAmount}G没収)`);
+      addLog(`🎲 倍プッシュ失敗！ バーストにより賭け金 ${bjBetAmount}G 全額没収…`);
     }
   };
 
@@ -936,34 +942,36 @@ export default function App() {
     setBjDealerHand(dHand);
 
     const pScore = calcHandScore(pHand);
-    setBjStatus('FINISHED');
-
-    const state = { ...gameState };
+    setBjStatus('WIN_DECIDED');
 
     if (dScore > 21 || pScore > dScore) {
       const isBlackjack = pScore === 21 && pHand.length === 2;
-      const winRatio = isBlackjack ? 2.5 : 2.0;
-      const winGold = Math.floor(currentBet * winRatio);
-      state.gold += winGold;
-      setGameState(state);
+      const payoutMultiplier = isBlackjack ? 2.5 : 2.0;
+      const winPayout = Math.floor(currentBet * payoutMultiplier);
+      setBjPotentialPayout(winPayout);
+
+      const nextStreak = bjStreakCount + 1;
+      const nextDoublePayout = winPayout * 2;
 
       if (isBlackjack) {
-        setBjResultMsg(`🏆 BLACKJACK!! 超大勝利！ ${winGold}G 獲得！`);
+        setBjResultMsg(`🏆 BLACKJACK!! ${nextStreak}連勝達成！ (獲得賞金: ${winPayout}G / 次の倍プッシュ配当: ${nextDoublePayout}G)`);
       } else {
-        setBjResultMsg(`🎉 勝負勝利！ ギャンブラーを打ち負かして ${winGold}G 獲得！`);
+        setBjResultMsg(`🎉 勝負勝利！ ${nextStreak}連勝達成！ (獲得賞金: ${winPayout}G / 次の倍プッシュ配当: ${nextDoublePayout}G)`);
       }
       sounds.playFanfare();
-      addLog(`🎲 ギャンブル大勝利！ ${winGold}G を手に入れた！`);
     } else if (pScore === dScore) {
+      setBjStatus('FINISHED');
+      const state = { ...gameState };
       state.gold += currentBet;
       setGameState(state);
-      setBjResultMsg(`⚖️ 引き分け (Push)！ 掛け金${currentBet}Gが戻りました。`);
+      setBjResultMsg(`⚖️ 引き分け (Push)！ 賭け金${currentBet}Gが手元に戻りました。`);
       sounds.playSelect();
-      addLog('🎲 ギャンブルは引き分け！ 掛け金が戻った。');
+      addLog('🎲 ギャンブルは引き分け！ 賭け金が手元に戻った。');
     } else {
-      setBjResultMsg(`💸 敗北… ギャンブラーに ${currentBet}G 負けました。`);
+      setBjStatus('FINISHED');
+      setBjResultMsg(`💸 敗北… ギャンブラーに ${currentBet}G 奪われました。`);
       sounds.playHit();
-      addLog(`🎲 ギャンブルに敗北… 掛け金${currentBet}Gは没収された。`);
+      addLog(`🎲 倍プッシュ敗北… 賭け金${currentBet}Gは全額没収された。`);
     }
   };
 
@@ -1258,7 +1266,7 @@ export default function App() {
                     onClick={handleStartBlackjack}
                     className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                   >
-                    <span>🃏 1. ブラックジャック 21 勝負 (カード戦略 & 倍プッシュ)</span>
+                    <span>🃏 1. 連勝無限倍プッシュ！ ブラックジャック 21</span>
                   </button>
                   <button
                     onClick={handleStartRoulette}
@@ -1349,16 +1357,25 @@ export default function App() {
         </div>
       )}
 
-      {/* GAMBLER (🤵) BLACKJACK MINIGAME MODAL WITH DOUBLE DOWN */}
+      {/* GAMBLER (🤵) INFINITE DOUBLE-PUSH BLACKJACK MODAL */}
       {activeModal === 'BLACKJACK' && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
           <div className="bg-emerald-950 border-4 border-yellow-400 rounded-xl p-5 max-w-md w-full text-white font-retro shadow-2xl flex flex-col items-center">
-            <div className="text-3xl mb-1">🎰 🤵 ギャンブラーのカジノ</div>
-            <h3 className="text-yellow-300 font-bold text-sm mb-4">
-              ブラックジャック 21 勝負 (現在の賭け金: {bjBetAmount}G)
+            <div className="text-2xl mb-1 flex items-center space-x-2">
+              <span>🎰 🤵 倍プッシュ勝負</span>
+              {bjStreakCount > 0 && (
+                <span className="text-xs bg-red-600 text-yellow-300 px-2 py-0.5 rounded-full font-bold animate-pulse border border-yellow-400">
+                  🔥 {bjStreakCount} 連勝中 ({bjBetAmount}G 賭け)
+                </span>
+              )}
+            </div>
+            <h3 className="text-yellow-300 font-bold text-xs mb-3 text-center">
+              {bjStreakCount === 0
+                ? '賭け金: 100G ➔ 勝利すれば倍プッシュで勝負継続可能！'
+                : `【${bjStreakCount + 1}戦目】 現在の累積賭け金: ${bjBetAmount}G ➔ 勝利で ${bjPotentialPayout}G！`}
             </h3>
 
-            <div className="w-full bg-emerald-900/60 p-3 rounded-lg border border-emerald-700 mb-4 flex flex-col items-center">
+            <div className="w-full bg-emerald-900/60 p-3 rounded-lg border border-emerald-700 mb-3 flex flex-col items-center">
               <div className="text-xs text-emerald-200 font-bold mb-1">
                 🤵 ギャンブラーの手札 (合計: {bjStatus === 'PLAYING' ? '?' : dScore})
               </div>
@@ -1383,7 +1400,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="w-full bg-emerald-900/60 p-3 rounded-lg border border-emerald-700 mb-4 flex flex-col items-center">
+            <div className="w-full bg-emerald-900/60 p-3 rounded-lg border border-emerald-700 mb-3 flex flex-col items-center">
               <div className="text-xs text-yellow-300 font-bold mb-1">
                 🥺 {gameState?.playerName} の手札 (合計: {pScore})
               </div>
@@ -1403,38 +1420,42 @@ export default function App() {
             </div>
 
             {bjResultMsg && (
-              <div className="mb-4 text-xs font-bold text-center bg-black/70 p-2.5 rounded border border-yellow-500 text-yellow-200">
+              <div className="mb-3 text-xs font-bold text-center bg-black/80 p-2.5 rounded border-2 border-yellow-400 text-yellow-300">
                 {bjResultMsg}
               </div>
             )}
 
             <div className="flex flex-col space-y-2 w-full">
               {bjStatus === 'PLAYING' ? (
-                <>
-                  <div className="flex space-x-2 w-full">
-                    <button
-                      onClick={handleBjHit}
-                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow"
-                    >
-                      🃏 ヒット (もう1枚)
-                    </button>
-                    <button
-                      onClick={handleBjStand}
-                      className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded shadow"
-                    >
-                      ✋ 勝負！ (スタンド)
-                    </button>
-                  </div>
-
-                  {bjPlayerHand.length === 2 && (
-                    <button
-                      onClick={handleBjDoublePush}
-                      className="w-full py-2.5 bg-red-600 hover:bg-red-500 text-yellow-300 font-bold rounded shadow border-2 border-yellow-400 animate-pulse text-xs"
-                    >
-                      🔥 倍プッシュ (賭け金2倍の200Gにしてカード1枚勝負！)
-                    </button>
-                  )}
-                </>
+                <div className="flex space-x-2 w-full">
+                  <button
+                    onClick={handleBjHit}
+                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow text-xs"
+                  >
+                    🃏 ヒット (もう1枚)
+                  </button>
+                  <button
+                    onClick={handleBjStand}
+                    className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded shadow text-xs"
+                  >
+                    ✋ 勝負！ (スタンド)
+                  </button>
+                </div>
+              ) : bjStatus === 'WIN_DECIDED' ? (
+                <div className="flex flex-col space-y-2 w-full">
+                  <button
+                    onClick={handleContinueDoublePush}
+                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-yellow-300 font-bold rounded shadow-xl border-2 border-yellow-400 animate-pulse text-sm"
+                  >
+                    🔥 さらに倍プッシュ！ ({bjPotentialPayout}G を賭けて {bjPotentialPayout * 2}G 勝負へ継続！)
+                  </button>
+                  <button
+                    onClick={handleCollectPayoutAndExit}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs"
+                  >
+                    💰 利益確定！ ({bjPotentialPayout}G を手に入れて降りる)
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => setActiveModal(null)}
