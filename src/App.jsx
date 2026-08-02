@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { generateDungeonFloor, MAP_SIZE } from './game/dungeonGenerator';
+import { generateDungeonFloor } from './game/dungeonGenerator';
 import { sounds } from './utils/soundEngine';
 import { generateBossData, generateNpcDialogue } from './utils/geminiApi';
 
@@ -120,6 +120,7 @@ export default function App() {
       playerName,
       className: jobClass.name,
       floor: initialFloor,
+      mapSize: dungeon.mapSize,
       gold: jobClass.initialItems.find((i) => i.category === 'MONEY')?.amount || 150,
       player: {
         x: dungeon.playerSpawn.x,
@@ -153,26 +154,27 @@ export default function App() {
 
     setGameState(newGameState);
     setActiveModal(null);
-    setLogs([`🏰 ${playerName} は 🥺の不思議な迷宮 に挑んだ！`]);
-    triggerFloorAnnounce(1);
+    setLogs([`🏰 ${playerName} は 🥺の不思議な迷宮 に挑んだ！ (1F: ${dungeon.mapSize}×${dungeon.mapSize})`]);
+    triggerFloorAnnounce(1, dungeon.mapSize);
     sounds.playSelect();
   };
 
-  const triggerFloorAnnounce = (floorNum) => {
-    setFloorAnnounce(`地下 ${floorNum} 階`);
+  const triggerFloorAnnounce = (floorNum, mapSize) => {
+    setFloorAnnounce(`地下 ${floorNum} 階 (${mapSize}×${mapSize})`);
     sounds.playFloorDown();
     setTimeout(() => {
       setFloorAnnounce(null);
-    }, 2000);
+    }, 2200);
   };
 
   const updateFOV = (state) => {
     const { grid, player, visitedGrid, visibleGrid } = state;
+    const mapSize = grid.length;
     const px = player.x;
     const py = player.y;
 
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
+    for (let y = 0; y < mapSize; y++) {
+      for (let x = 0; x < mapSize; x++) {
         visibleGrid[y][x] = false;
       }
     }
@@ -181,7 +183,7 @@ export default function App() {
       for (let dx = -2; dx <= 2; dx++) {
         const nx = px + dx;
         const ny = py + dy;
-        if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE) {
+        if (nx >= 0 && nx < mapSize && ny >= 0 && ny < mapSize) {
           visibleGrid[ny][nx] = true;
           visitedGrid[ny][nx] = true;
         }
@@ -220,6 +222,7 @@ export default function App() {
 
     let state = { ...gameState };
     let { player, companions, enemies, npcs, items, grid, wallData, stairsPos } = state;
+    const mapSize = grid.length;
     let turnActionTaken = false;
 
     if (playerAction.type === 'MOVE') {
@@ -227,7 +230,7 @@ export default function App() {
       const targetY = player.y + playerAction.dir.y;
       player.facing = playerAction.dir;
 
-      if (targetX >= 0 && targetX < MAP_SIZE && targetY >= 0 && targetY < MAP_SIZE) {
+      if (targetX >= 0 && targetX < mapSize && targetY >= 0 && targetY < mapSize) {
         const targetTile = grid[targetY][targetX];
 
         const enemyHere = enemies.find((e) => e.x === targetX && e.y === targetY);
@@ -325,7 +328,7 @@ export default function App() {
     }
 
     processMultiCompanionsAI(state);
-    processFriendlyNpcCombatAI(state); // FRIENDLY NPCS SELF-DEFENSE COMBAT AI
+    processFriendlyNpcCombatAI(state);
     processEnemiesAI(state);
     updateFOV(state);
 
@@ -351,7 +354,7 @@ export default function App() {
 
         if (adjacentEnemy.hp <= 0) {
           state.enemies = enemies.filter((e) => e.id !== adjacentEnemy.id);
-          addLog(`💥 ${npc.name} は襲いかかってきた ${adjacentEnemy.name} を見事に返り討ちにした！`);
+          addLog(`💥 ${npc.name} は襲いかかってきた ${adjacentEnemy.name} を見事に返り討ちに！`);
         }
       }
     });
@@ -584,6 +587,7 @@ export default function App() {
     const dungeon = generateDungeonFloor(nextFloor);
 
     state.floor = nextFloor;
+    state.mapSize = dungeon.mapSize;
     state.grid = dungeon.grid;
     state.wallData = dungeon.wallData;
     state.visitedGrid = dungeon.visitedGrid;
@@ -623,8 +627,8 @@ export default function App() {
 
     updateFOV(state);
     setGameState({ ...state });
-    triggerFloorAnnounce(nextFloor);
-    addLog(`🪜 階層を降りて ${nextFloor}F に進んだ！`);
+    triggerFloorAnnounce(nextFloor, dungeon.mapSize);
+    addLog(`🪜 階層を降りて ${nextFloor}F に進んだ！ (マップサイズ: ${dungeon.mapSize}×${dungeon.mapSize})`);
   };
 
   const triggerNpcDialogue = async (npc) => {
@@ -878,8 +882,9 @@ export default function App() {
     }
 
     state.gold -= 80;
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
+    const mapSize = state.grid.length;
+    for (let y = 0; y < mapSize; y++) {
+      for (let x = 0; x < mapSize; x++) {
         state.visibleGrid[y][x] = true;
         state.visitedGrid[y][x] = true;
       }
@@ -1163,7 +1168,7 @@ export default function App() {
 
         {floorAnnounce && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-            <div className="bg-black/90 border-4 border-yellow-400 px-8 py-4 rounded-xl text-3xl sm:text-4xl text-yellow-300 font-bold tracking-widest text-shadow-retro animate-pulse">
+            <div className="bg-black/90 border-4 border-yellow-400 px-8 py-4 rounded-xl text-2xl sm:text-4xl text-yellow-300 font-bold tracking-widest text-shadow-retro animate-pulse">
               {floorAnnounce}
             </div>
           </div>
