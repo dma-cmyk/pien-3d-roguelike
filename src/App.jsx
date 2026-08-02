@@ -183,6 +183,34 @@ export default function App() {
     }
   };
 
+  // SWAP POSITION WITH ADJACENT PET
+  const handleSwapPositionWithPet = (targetPet) => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    const { player, companions } = state;
+
+    const pet = targetPet || companions.find((c) => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) === 1);
+    if (!pet) {
+      addLog('⚠️ 隣接する位置に仲間ペットがいません！');
+      return;
+    }
+
+    const tempX = player.x;
+    const tempY = player.y;
+
+    player.x = pet.x;
+    player.y = pet.y;
+
+    pet.x = tempX;
+    pet.y = tempY;
+
+    addLog(`🔄 ${player.name} は ${pet.emoji} ${pet.name} と位置を入れ替えた！`);
+    sounds.playSelect();
+
+    // Turn progresses after swap
+    processTurnAfterAction(state);
+  };
+
   const processTurn = (playerAction) => {
     if (!gameState || activeModal) return;
 
@@ -199,8 +227,24 @@ export default function App() {
         const targetTile = grid[targetY][targetX];
 
         const enemyHere = enemies.find((e) => e.x === targetX && e.y === targetY);
+        const companionHere = companions.find((c) => c.x === targetX && c.y === targetY);
+
         if (enemyHere) {
           executePlayerAttack(state, enemyHere);
+          turnActionTaken = true;
+        } else if (companionHere) {
+          // SWAP POSITION WITH PET WHEN MOVING INTO ITS TILE
+          const tempX = player.x;
+          const tempY = player.y;
+
+          player.x = companionHere.x;
+          player.y = companionHere.y;
+
+          companionHere.x = tempX;
+          companionHere.y = tempY;
+
+          addLog(`🔄 ${player.name} は ${companionHere.emoji} ${companionHere.name} と位置を入れ替えた！`);
+          sounds.playSelect();
           turnActionTaken = true;
         } else if (targetTile === 'W') {
           executeWallMining(state, targetX, targetY);
@@ -210,25 +254,22 @@ export default function App() {
           if (npcHere) {
             triggerNpcDialogue(npcHere);
           } else {
-            const companionHere = companions.some((c) => c.x === targetX && c.y === targetY);
-            if (!companionHere) {
-              player.x = targetX;
-              player.y = targetY;
-              turnActionTaken = true;
+            player.x = targetX;
+            player.y = targetY;
+            turnActionTaken = true;
 
-              const itemIdx = items.findIndex((i) => i.x === targetX && i.y === targetY);
-              if (itemIdx >= 0) {
-                const pickedItem = items[itemIdx];
-                items.splice(itemIdx, 1);
-                state.inventory.push(pickedItem);
-                addLog(`✨ ${pickedItem.emoji} ${pickedItem.name} を手に入れた！`);
-                sounds.playHeal();
-              }
+            const itemIdx = items.findIndex((i) => i.x === targetX && i.y === targetY);
+            if (itemIdx >= 0) {
+              const pickedItem = items[itemIdx];
+              items.splice(itemIdx, 1);
+              state.inventory.push(pickedItem);
+              addLog(`✨ ${pickedItem.emoji} ${pickedItem.name} を手に入れた！`);
+              sounds.playHeal();
+            }
 
-              if (targetX === stairsPos.x && targetY === stairsPos.y) {
-                advanceToNextFloor(state);
-                return;
-              }
+            if (targetX === stairsPos.x && targetY === stairsPos.y) {
+              advanceToNextFloor(state);
+              return;
             }
           }
         }
@@ -254,7 +295,11 @@ export default function App() {
     }
 
     if (!turnActionTaken) return;
+    processTurnAfterAction(state);
+  };
 
+  const processTurnAfterAction = (state) => {
+    let { player } = state;
     player.food = Math.max(0, player.food - 1);
     if (player.food === 0) {
       player.hp -= 2;
@@ -266,11 +311,8 @@ export default function App() {
       }
     }
 
-    // Process AI for All Active Companions
     processMultiCompanionsAI(state);
-
     processEnemiesAI(state);
-
     updateFOV(state);
 
     setGameState({ ...state });
@@ -342,14 +384,12 @@ export default function App() {
     }
   };
 
-  // MULTI-PET NO-STUCK AI ENGINE
   const processMultiCompanionsAI = (state) => {
     const { companions, enemies, player, grid, items } = state;
 
     companions.forEach((companion, idx) => {
       if (companion.hp <= 0) return;
 
-      // Auto Heal
       if (companion.hp <= companion.maxHp * 0.5) {
         const healItemIdx = companion.inventory.findIndex(
           (i) => i.type === 'HERB' || i.type === 'POTION' || i.type === 'FOOD' || i.foodRestore > 0
@@ -365,7 +405,6 @@ export default function App() {
         }
       }
 
-      // Auto Equip
       companion.inventory.forEach((item) => {
         if (item.type === 'WEAPON') {
           if (!companion.equippedWeapon || item.atkBonus > companion.equippedWeapon.atkBonus) {
@@ -384,7 +423,6 @@ export default function App() {
         }
       });
 
-      // Auto Pickup Item
       const floorItemIdx = items.findIndex((i) => i.x === companion.x && i.y === companion.y);
       if (floorItemIdx >= 0) {
         const pickedItem = items[floorItemIdx];
@@ -394,7 +432,6 @@ export default function App() {
         sounds.playHeal();
       }
 
-      // Enemy Attack/Approach
       let nearestEnemy = null;
       let minDist = 999;
       enemies.forEach((e) => {
@@ -420,7 +457,6 @@ export default function App() {
         }
       }
 
-      // Snake Queue Follow Leader (Player or preceding pet)
       const leaderTarget = idx === 0 ? player : companions[idx - 1];
       const distToLeader = Math.abs(leaderTarget.x - companion.x) + Math.abs(leaderTarget.y - companion.y);
 
@@ -1035,6 +1071,18 @@ export default function App() {
               if (act === 'WAIT') processTurn({ type: 'WAIT' });
             }}
           />
+        )}
+
+        {/* Quick Position Swap Button for Mobile/Touch UI */}
+        {gameState && !activeModal && gameState.companions?.length > 0 && (
+          <div className="absolute bottom-28 left-4 z-20">
+            <button
+              onClick={() => handleSwapPositionWithPet()}
+              className="px-3 py-2 bg-emerald-700/90 hover:bg-emerald-600 border-2 border-emerald-400 rounded-lg text-white font-bold text-xs shadow-xl active:scale-95 transition-transform flex items-center space-x-1"
+            >
+              <span>🔄 位置チェンジ</span>
+            </button>
+          </div>
         )}
       </div>
 
