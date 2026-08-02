@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Package, Shield, Wand2, Sparkles, Layers, Trophy } from 'lucide-react';
+import { X, Package } from 'lucide-react';
 
 export function InventoryModal({
   inventory,
@@ -25,21 +25,24 @@ export function InventoryModal({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 select-none">
-      <div className="bg-gray-900 border-4 border-white rounded-lg w-full max-w-lg p-4 font-retro shadow-2xl flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 select-none">
+      <div className="bg-gray-900 border-4 border-white rounded-xl w-full max-w-lg p-4 font-retro shadow-2xl flex flex-col max-h-[88vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b-2 border-gray-700 pb-2 mb-3">
-          <div className="flex items-center space-x-2 text-yellow-400 text-sm sm:text-base">
+        <div className="flex items-center justify-between border-b-2 border-gray-700 pb-2.5 mb-3">
+          <div className="flex items-center space-x-2 text-yellow-400 text-base sm:text-lg font-bold">
             <Package className="w-5 h-5" />
             <span>道具袋 ({inventory.length}/20)</span>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* 7 Filter Tabs */}
-        <div className="flex space-x-1 border-b border-gray-800 pb-2 mb-3 overflow-x-auto text-xs">
+        {/* 7 Filter Tabs (Responsive Grid layout to prevent squishing) */}
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 border-b border-gray-800 pb-3 mb-3 text-xs">
           {[
             { id: 'ALL', label: 'すべて' },
             { id: 'JAR', label: '🏺 壺' },
@@ -52,10 +55,10 @@ export function InventoryModal({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-2 py-1 rounded whitespace-nowrap border ${
+              className={`py-1.5 px-1 rounded-md font-bold transition-all text-center flex items-center justify-center whitespace-nowrap border ${
                 activeTab === tab.id
-                  ? 'bg-yellow-500 border-yellow-300 text-black font-bold'
-                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-yellow-500 border-yellow-300 text-black shadow-md scale-105'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white'
               }`}
             >
               {tab.label}
@@ -63,52 +66,79 @@ export function InventoryModal({
           ))}
         </div>
 
-        {/* Item List */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[220px]">
+        {/* Inventory List */}
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
           {filteredItems.length === 0 ? (
-            <div className="text-center text-gray-500 py-8 text-xs">該当するアイテムを持っていません</div>
+            <div className="text-center py-12 text-gray-500 font-bold">
+              このカテゴリのアイテムはありません
+            </div>
           ) : (
             filteredItems.map((item) => {
-              const isEquippedWep = equippedWeapon?.id === item.id;
-              const isEquippedShd = equippedShield?.id === item.id;
-              const isEquipped = isEquippedWep || isEquippedShd;
-              const isArtifact = item.category === 'ARTIFACT';
-              const isJar = item.category === 'JAR';
+              const isWeaponEquipped = equippedWeapon?.id === item.id;
+              const isShieldEquipped = equippedShield?.id === item.id;
+              const isEquipped = isWeaponEquipped || isShieldEquipped;
 
               return (
                 <div
                   key={item.id}
-                  className={`p-2.5 rounded border flex items-center justify-between transition-colors ${
-                    isArtifact
-                      ? 'bg-amber-950/80 border-yellow-400 shadow-lg animate-pulse'
+                  className={`p-3 rounded-lg border flex items-center justify-between transition-colors ${
+                    item.category === 'ARTIFACT'
+                      ? 'bg-gradient-to-r from-yellow-950/80 via-amber-900/60 to-yellow-950/80 border-yellow-400 shadow-lg'
                       : isEquipped
-                      ? 'bg-indigo-950 border-indigo-400'
-                      : 'bg-gray-800 border-gray-700 hover:bg-gray-750'
+                      ? 'bg-indigo-950/80 border-indigo-500'
+                      : 'bg-gray-800/80 border-gray-700 hover:border-gray-600'
                   }`}
                 >
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xl">{item.emoji}</span>
-                    <div className="flex flex-col">
-                      <div className="flex items-center space-x-1.5 text-xs text-white">
-                        <span className={isArtifact ? 'text-yellow-300 font-bold' : ''}>{item.name}</span>
-                        {item.uses && <span className="text-[10px] bg-yellow-900 border border-yellow-500 text-yellow-300 px-1 rounded font-bold">[{item.uses}個]</span>}
-                        {isEquipped && <span className="text-[10px] bg-indigo-600 px-1 rounded font-bold">[装備中]</span>}
-                        {isArtifact && <span className="text-[9px] bg-yellow-600 text-black px-1 rounded font-bold">【伝説神器】</span>}
-                        {item.enchantments?.map((e, idx) => (
-                          <span key={idx} className="text-[9px] bg-purple-900 border border-purple-500 text-purple-200 px-1 rounded">
-                            {e}
+                  <div className="flex items-center space-x-3 flex-1 min-w-0 pr-2">
+                    <div className="text-2xl sm:text-3xl shrink-0">{item.emoji}</div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <span
+                          className={`font-bold truncate ${
+                            item.category === 'ARTIFACT'
+                              ? 'text-yellow-300 text-sm'
+                              : 'text-white'
+                          }`}
+                        >
+                          {item.name}
+                        </span>
+
+                        {isEquipped && (
+                          <span className="bg-indigo-600 text-white font-bold px-1.5 py-0.5 rounded text-[10px] shrink-0 animate-pulse">
+                            【装備中】
                           </span>
-                        ))}
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        {item.category === 'ARTIFACT' && (item.effect || '古代の神秘的な力を秘めた秘宝')}
-                        {item.category === 'EQUIPMENT' && `攻撃+${item.atkBonus || 0} 防御+${item.defBonus || 0}`}
-                        {item.category === 'SPELLBOOK' && `呪文・魔法書アイテム`}
-                        {item.category === 'CONSUMABLE' && (item.heal ? `回復量: ${item.heal}` : '消費アイテム')}
-                        {item.category === 'MATERIAL' && `クラフト強化用素材 (所持数: ${item.uses || 1})`}
+                        )}
+
+                        {item.uses !== undefined && (
+                          <span className="bg-amber-600 text-yellow-100 font-bold px-1.5 py-0.5 rounded text-[10px] shrink-0">
+                            【{item.uses}個】
+                          </span>
+                        )}
+
                         {item.category === 'JAR' && (
-                          <span className="text-yellow-300 font-bold">
-                            容量: {(item.capacity || 4) - (item.contents?.length || 0)}/{(item.capacity || 4)} {item.contents?.length > 0 ? `(中身: ${item.contents.map(c=>c.name).join(', ')})` : '(空)'}
+                          <span className="bg-orange-800 text-orange-200 font-bold px-1.5 py-0.5 rounded text-[10px] shrink-0">
+                            容量: {(item.capacity || 4) - (item.contents?.length || 0)}/{item.capacity || 4} 〈{item.contents?.length > 0 ? `${item.contents.length}個保管中` : '空'}〉
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Details / Stats */}
+                      <div className="text-gray-400 text-[11px] mt-0.5 space-x-2">
+                        {item.category === 'ARTIFACT' && (
+                          <span className="text-yellow-200 font-bold">{item.effect}</span>
+                        )}
+                        {item.atkBonus > 0 && <span>攻撃+{item.atkBonus}</span>}
+                        {item.defBonus > 0 && <span>防御+{item.defBonus}</span>}
+                        {item.heal > 0 && <span>回復量: {item.heal}</span>}
+                        {item.foodRestore > 0 && <span>満腹度回復: {item.foodRestore}</span>}
+                        {item.category === 'MATERIAL' && <span>クラフト強化用素材</span>}
+                        {item.category === 'SPELLBOOK' && <span>呪文・魔法書アイテム</span>}
+                        {item.category === 'CONSUMABLE' && !item.heal && !item.foodRestore && (
+                          <span>消費アイテム</span>
+                        )}
+                        {item.enchantments?.length > 0 && (
+                          <span className="text-cyan-300 font-bold">
+                            【{item.enchantments.join(', ')}】
                           </span>
                         )}
                       </div>
@@ -116,29 +146,38 @@ export function InventoryModal({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center space-x-1.5 text-xs">
-                    {isJar && (
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    {/* Jar Put-In Button */}
+                    {item.category === 'JAR' && onOpenJarInputModal && (
                       <button
                         onClick={() => onOpenJarInputModal(item)}
-                        className="px-2 py-1 bg-amber-600 hover:bg-amber-500 rounded text-white text-[11px] font-bold"
+                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded text-xs shadow transition-transform active:scale-95 flex items-center space-x-1"
                       >
-                        🏺 入れる
+                        <span>🏺 入れる</span>
                       </button>
                     )}
 
+                    {/* Equipment Equip/Unequip Button */}
                     {item.category === 'EQUIPMENT' && (
                       <button
                         onClick={() => onEquipItem(item)}
-                        className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-white text-[11px]"
+                        className={`px-3 py-1.5 font-bold rounded text-xs shadow transition-transform active:scale-95 ${
+                          isEquipped
+                            ? 'bg-purple-700 hover:bg-purple-600 text-white'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
                       >
                         {isEquipped ? '外す' : '装備'}
                       </button>
                     )}
 
-                    {(item.category === 'CONSUMABLE' || item.category === 'SPELLBOOK' || item.category === 'ARTIFACT') && (
+                    {/* Consumables / Spellbooks / Artifacts Use Button */}
+                    {(item.category === 'CONSUMABLE' ||
+                      item.category === 'SPELLBOOK' ||
+                      item.category === 'ARTIFACT') && (
                       <button
                         onClick={() => onUseItem(item)}
-                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white text-[11px]"
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs shadow transition-transform active:scale-95"
                       >
                         使用
                       </button>
@@ -150,9 +189,10 @@ export function InventoryModal({
           )}
         </div>
 
-        {/* Footer info */}
-        <div className="border-t border-gray-800 pt-2 mt-2 text-[11px] text-amber-300 text-center font-bold">
-          🏺 壺に装備を連続で放り込むと合成強化され、アイテムを入れると変化・識別が起こります！
+        {/* Footer Hint */}
+        <div className="border-t border-gray-800 pt-2.5 mt-3 text-[11px] text-gray-400 text-center flex items-center justify-center space-x-1">
+          <span>🏺</span>
+          <span>壺に装備を連続で放り込むと合成強化され、アイテムを入れると変化・識別が起こります！</span>
         </div>
       </div>
     </div>
