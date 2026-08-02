@@ -3,7 +3,6 @@ import { X, Package, Shield, Wand2, Sparkles, Layers } from 'lucide-react';
 
 export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUseItem, onEquipItem, onSynthesize, onClose }) {
   const [activeTab, setActiveTab] = useState('ALL');
-  const [selectedJar, setSelectedJar] = useState(null);
 
   // Tab Filters
   const filteredItems = inventory.filter((item) => {
@@ -11,6 +10,7 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
     if (activeTab === 'EQUIPMENT') return item.category === 'EQUIPMENT';
     if (activeTab === 'SPELLBOOK') return item.category === 'SPELLBOOK';
     if (activeTab === 'CONSUMABLE') return item.category === 'CONSUMABLE';
+    if (activeTab === 'MATERIAL') return item.category === 'MATERIAL';
     if (activeTab === 'JAR') return item.category === 'JAR';
     if (activeTab === 'MONEY') return item.category === 'MONEY';
     return true;
@@ -30,13 +30,14 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
           </button>
         </div>
 
-        {/* 5 Filter Tabs */}
+        {/* 6 Filter Tabs */}
         <div className="flex space-x-1 border-b border-gray-800 pb-2 mb-3 overflow-x-auto text-xs">
           {[
             { id: 'ALL', label: 'すべて' },
             { id: 'EQUIPMENT', label: '⚔️ 装備' },
             { id: 'SPELLBOOK', label: '📖 魔法' },
             { id: 'CONSUMABLE', label: '🧪 消費' },
+            { id: 'MATERIAL', label: '🧱 素材' },
             { id: 'JAR', label: '🏺 壺' },
           ].map((tab) => (
             <button
@@ -56,7 +57,7 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
         {/* Item List */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[220px]">
           {filteredItems.length === 0 ? (
-            <div className="text-center text-gray-500 py-8 text-xs">アイテムを持っていません</div>
+            <div className="text-center text-gray-500 py-8 text-xs">該当するアイテムを持っていません</div>
           ) : (
             filteredItems.map((item) => {
               const isEquippedWep = equippedWeapon?.id === item.id;
@@ -75,6 +76,7 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
                     <div className="flex flex-col">
                       <div className="flex items-center space-x-1.5 text-xs text-white">
                         <span>{item.name}</span>
+                        {item.uses && <span className="text-[10px] bg-yellow-900 border border-yellow-500 text-yellow-300 px-1 rounded font-bold">[{item.uses}回]</span>}
                         {isEquipped && <span className="text-[10px] bg-indigo-600 px-1 rounded font-bold">[装備中]</span>}
                         {item.enchantments?.map((e, idx) => (
                           <span key={idx} className="text-[9px] bg-purple-900 border border-purple-500 text-purple-200 px-1 rounded">
@@ -84,8 +86,9 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
                       </div>
                       <div className="text-[10px] text-gray-400">
                         {item.category === 'EQUIPMENT' && `攻撃+${item.atkBonus || 0} 防御+${item.defBonus || 0}`}
-                        {item.category === 'SPELLBOOK' && `使用回数: ${item.uses}`}
+                        {item.category === 'SPELLBOOK' && `呪文・魔法書アイテム`}
                         {item.category === 'CONSUMABLE' && (item.heal ? `回復量: ${item.heal}` : '消費アイテム')}
+                        {item.category === 'MATERIAL' && `クラフト強化用素材 (所持数: ${item.uses || 1})`}
                         {item.category === 'JAR' && `合成可能 (容量: ${item.capacity - (item.contents?.length || 0)})`}
                       </div>
                     </div>
@@ -101,20 +104,13 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
                         {isEquipped ? '外す' : '装備'}
                       </button>
                     )}
+
                     {(item.category === 'CONSUMABLE' || item.category === 'SPELLBOOK') && (
                       <button
                         onClick={() => onUseItem(item)}
-                        className="px-2 py-1 bg-green-600 hover:bg-green-500 rounded text-white text-[11px]"
+                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white text-[11px]"
                       >
-                        使う
-                      </button>
-                    )}
-                    {item.category === 'JAR' && item.type === 'SYNTHESIS' && (
-                      <button
-                        onClick={() => setSelectedJar(item)}
-                        className="px-2 py-1 bg-purple-600 hover:bg-purple-500 rounded text-white text-[11px]"
-                      >
-                        合成する
+                        使用
                       </button>
                     )}
                   </div>
@@ -124,32 +120,10 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
           )}
         </div>
 
-        {/* Synthesis Modal Inner View */}
-        {selectedJar && (
-          <div className="border-t-2 border-purple-500 pt-3 mt-3 bg-purple-950/40 p-2.5 rounded">
-            <div className="text-xs text-purple-200 font-bold mb-2 flex items-center justify-between">
-              <span>🏺 【{selectedJar.name}】に投入する装備を選択</span>
-              <button onClick={() => setSelectedJar(null)} className="text-xs text-gray-400">キャンセル</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {inventory
-                .filter((i) => i.category === 'EQUIPMENT' && i.id !== equippedWeapon?.id && i.id !== equippedShield?.id)
-                .map((eq) => (
-                  <button
-                    key={eq.id}
-                    onClick={() => {
-                      onSynthesize(selectedJar, eq);
-                      setSelectedJar(null);
-                    }}
-                    className="p-1.5 bg-gray-800 hover:bg-purple-900 border border-gray-600 rounded flex items-center space-x-1 text-left"
-                  >
-                    <span>{eq.emoji}</span>
-                    <span className="truncate">{eq.name}</span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
+        {/* Footer info */}
+        <div className="border-t border-gray-800 pt-2 mt-2 text-[11px] text-gray-400 text-center">
+          💡 素材アイテム 🧱 は鍛冶屋で強力な武具クラフトに使用できます
+        </div>
       </div>
     </div>
   );

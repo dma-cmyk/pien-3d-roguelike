@@ -247,9 +247,9 @@ export function generateRandomItem(x, y, floorNumber) {
   const rand = Math.random();
   const id = `item_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-  if (rand < 0.25) {
+  if (rand < 0.2) {
     return { id, x, y, name: 'パン', emoji: '🍞', category: 'CONSUMABLE', type: 'FOOD', foodRestore: 40, isIdentified: true };
-  } else if (rand < 0.45) {
+  } else if (rand < 0.38) {
     const isHerb = Math.random() < 0.6;
     return {
       id, x, y,
@@ -260,18 +260,45 @@ export function generateRandomItem(x, y, floorNumber) {
       heal: 30,
       isIdentified: isHerb,
     };
-  } else if (rand < 0.6) {
+  } else if (rand < 0.55) {
+    // MATERIAL DROPS (🪨 鉄鉱石, 💎 魔法の結晶, 🪵 竜のうろこ)
+    const matRand = Math.random();
+    let matName = '鉄鉱石';
+    let matEmoji = '🪨';
+    let matType = 'IRON_ORE';
+
+    if (matRand < 0.4) {
+      matName = '魔法の結晶';
+      matEmoji = '💎';
+      matType = 'MANA_CRYSTAL';
+    } else if (matRand < 0.7) {
+      matName = '竜のうろこ';
+      matEmoji = '🪵';
+      matType = 'DRAGON_SCALE';
+    }
+
+    return {
+      id, x, y,
+      name: matName,
+      emoji: matEmoji,
+      category: 'MATERIAL',
+      type: matType,
+      uses: 1,
+      isIdentified: true,
+    };
+  } else if (rand < 0.7) {
     const isMeat = Math.random() < 0.5;
     return {
       id, x, y,
       name: isMeat ? '魔物の肉' : 'テイムの書',
       emoji: isMeat ? '🥩' : '📖',
       category: isMeat ? 'CONSUMABLE' : 'SPELLBOOK',
-      type: 'TAME',
-      uses: 3, // 3 times uses
+      type: isMeat ? 'FOOD' : 'TAME',
+      uses: isMeat ? 1 : 3,
+      foodRestore: isMeat ? 60 : 0,
       isIdentified: true,
     };
-  } else if (rand < 0.75) {
+  } else if (rand < 0.82) {
     const isWep = Math.random() < 0.5;
     const enchant = Math.random() < 0.4 ? ENCHANTMENTS[Math.floor(Math.random() * ENCHANTMENTS.length)] : null;
     return {
@@ -285,14 +312,14 @@ export function generateRandomItem(x, y, floorNumber) {
       enchantments: enchant ? [enchant] : [],
       isIdentified: true,
     };
-  } else if (rand < 0.88) {
+  } else if (rand < 0.92) {
     return {
       id, x, y,
       name: 'イオの書',
       emoji: '📜',
       category: 'SPELLBOOK',
       type: 'SPELLBOOK',
-      uses: 4, // 4 times uses (Area Damage Spell)
+      uses: 4,
       isIdentified: true,
     };
   } else {

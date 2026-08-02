@@ -20,6 +20,8 @@ const SHOP_MASTER_CATALOG = [
   { id: 'BREAD', name: '高級パン', emoji: '🍞', cost: 35, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 60 },
   { id: 'MEAT', name: '魔物の肉', emoji: '🥩', cost: 60, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 80 },
   { id: 'POTION', name: '特効薬', emoji: '🧪', cost: 90, category: 'CONSUMABLE', type: 'POTION', heal: 70 },
+  { id: 'IRON_ORE', name: '鉄鉱石', emoji: '🪨', cost: 50, category: 'MATERIAL', type: 'IRON_ORE', uses: 1 },
+  { id: 'MANA_CRYSTAL', name: '魔法の結晶', emoji: '💎', cost: 80, category: 'MATERIAL', type: 'MANA_CRYSTAL', uses: 1 },
   { id: 'SWORD', name: '鋼鉄の剣', emoji: '⚔️', cost: 120, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 6, enchantments: ['会心'] },
   { id: 'FLAME_SWORD', name: '炎の剣', emoji: '🗡️', cost: 220, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 10, enchantments: ['火属性'] },
   { id: 'SHIELD', name: '木の盾', emoji: '🛡️', cost: 100, category: 'EQUIPMENT', type: 'SHIELD', defBonus: 4 },
@@ -153,7 +155,10 @@ export default function App() {
         facing: { x: 0, y: 1 },
       },
       companions: [initialCompanion],
-      inventory: jobClass.initialItems,
+      inventory: [
+        ...jobClass.initialItems,
+        { id: 'init_ore', name: '鉄鉱石', emoji: '🪨', category: 'MATERIAL', type: 'IRON_ORE', uses: 2 },
+      ],
       grid: dungeon.grid,
       wallData: dungeon.wallData,
       visitedGrid: dungeon.visitedGrid,
@@ -285,17 +290,17 @@ export default function App() {
               const pickedItem = items[itemIdx];
               items.splice(itemIdx, 1);
 
-              // STACK SYSTEM FOR SPELLBOOKS / CONSUMABLES WITH USES
+              // STACK SYSTEM FOR SPELLBOOKS / MATERIALS / CONSUMABLES WITH USES
               const existingItem = state.inventory.find(
-                (i) => i.name === pickedItem.name && i.category === pickedItem.category && (i.uses !== undefined || pickedItem.uses !== undefined)
+                (i) => i.name === pickedItem.name && i.category === pickedItem.category
               );
 
-              if (existingItem) {
+              if (existingItem && (existingItem.uses !== undefined || pickedItem.uses !== undefined)) {
                 existingItem.uses = (existingItem.uses || 1) + (pickedItem.uses || 1);
-                addLog(`✨ ${pickedItem.emoji} ${pickedItem.name} を手に入れ、スタック統合した！ (計 ${existingItem.uses} 回分)`);
+                addLog(`✨ ${pickedItem.emoji} ${pickedItem.name} を手に入れ、スタック統合した！ (計 ${existingItem.uses} 個分)`);
               } else {
                 state.inventory.push(pickedItem);
-                const usesInfo = pickedItem.uses ? ` [回数: ${pickedItem.uses}]` : '';
+                const usesInfo = pickedItem.uses ? ` [${pickedItem.uses}個]` : '';
                 addLog(`✨ ${pickedItem.emoji} ${pickedItem.name}${usesInfo} を手に入れた！`);
               }
               sounds.playHeal();
@@ -463,11 +468,11 @@ export default function App() {
           id: `drop_${Date.now()}`,
           x,
           y,
-          name: isFood ? 'パン' : '鉱石の結晶',
-          emoji: isFood ? '🍞' : '💎',
-          category: isFood ? 'CONSUMABLE' : 'MONEY',
-          type: isFood ? 'FOOD' : 'MONEY',
-          amount: 100,
+          name: isFood ? 'パン' : '鉄鉱石',
+          emoji: isFood ? '🍞' : '🪨',
+          category: isFood ? 'CONSUMABLE' : 'MATERIAL',
+          type: isFood ? 'FOOD' : 'IRON_ORE',
+          uses: 1,
           foodRestore: 40,
         });
       }
@@ -785,7 +790,7 @@ export default function App() {
     // ITEM CONSUMPTION & STACK USES DECREMENT LOGIC
     if (item.uses && item.uses > 1) {
       item.uses -= 1;
-      addLog(`📜 ${item.name} の使用回数が消費された (残り: ${item.uses} 回)`);
+      addLog(`📜 ${item.name} の使用個数が消費された (残り: ${item.uses} 個)`);
     } else {
       state.inventory = inventory.filter((i) => i.id !== item.id);
     }
@@ -804,6 +809,7 @@ export default function App() {
 
     let price = 30;
     if (item.category === 'MONEY') price = item.amount || 100;
+    else if (item.category === 'MATERIAL') price = 40 * (item.uses || 1);
     else if (item.category === 'EQUIPMENT') price = 80;
     else if (item.category === 'JAR') price = 60;
     else if (item.category === 'SPELLBOOK') price = 50 * (item.uses || 1);
@@ -841,6 +847,63 @@ export default function App() {
       addLog(`🔨 鍛冶屋が ${equippedShield.name} を補強した！ (防御力+2)`);
     }
     sounds.playMine();
+    setGameState(state);
+  };
+
+  // CRAFT MATERIAL AT SMITH (素材クラフト武具作成)
+  const handleCraftAtSmith = (recipeType) => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    const { inventory, gold } = state;
+
+    if (recipeType === 'DRAGON_SLAYER') {
+      const ironOre = inventory.find((i) => i.type === 'IRON_ORE');
+      if (!ironOre || gold < 150) {
+        addLog('⚠️ クラフト失敗！ 鉄鉱石 🪨 と 150G が必要です！');
+        return;
+      }
+      state.gold -= 150;
+      if (ironOre.uses > 1) ironOre.uses -= 1;
+      else state.inventory = inventory.filter((i) => i.id !== ironOre.id);
+
+      const craftedWeapon = {
+        id: `crafted_${Date.now()}`,
+        name: 'ドラゴンスレイヤー',
+        emoji: '⚔️',
+        category: 'EQUIPMENT',
+        type: 'WEAPON',
+        atkBonus: 14,
+        enchantments: ['竜特効', '会心'],
+        isIdentified: true,
+      };
+      state.inventory.push(craftedWeapon);
+      addLog('🔥 🔨 鍛冶屋が 🪨 鉄鉱石 から【⚔️ ドラゴンスレイヤー (ATK+14)】を錬成した！');
+      sounds.playMineBreak();
+    } else if (recipeType === 'DRAGON_SHIELD') {
+      const crystal = inventory.find((i) => i.type === 'MANA_CRYSTAL' || i.type === 'DRAGON_SCALE');
+      if (!crystal || gold < 150) {
+        addLog('⚠️ クラフト失敗！ 魔法の結晶 💎 と 150G が必要です！');
+        return;
+      }
+      state.gold -= 150;
+      if (crystal.uses > 1) crystal.uses -= 1;
+      else state.inventory = inventory.filter((i) => i.id !== crystal.id);
+
+      const craftedShield = {
+        id: `crafted_${Date.now()}`,
+        name: '竜鱗の鏡盾',
+        emoji: '🛡️',
+        category: 'EQUIPMENT',
+        type: 'SHIELD',
+        defBonus: 9,
+        enchantments: ['暗視', '魔法反射'],
+        isIdentified: true,
+      };
+      state.inventory.push(craftedShield);
+      addLog('🔥 🔨 鍛冶屋が 💎 魔法の結晶 から【🛡️ 竜鱗の鏡盾 (DEF+9)】を精錬した！');
+      sounds.playMineBreak();
+    }
+
     setGameState(state);
   };
 
@@ -1297,14 +1360,32 @@ export default function App() {
             </p>
 
             <div className="flex flex-col space-y-2 text-xs">
-              {/* 👷 鍛冶屋 (Smith) */}
+              {/* 👷 鍛冶屋 (Smith & Crafting) */}
               {npcSpeech.npc.emoji === '👷' && (
-                <button
-                  onClick={handleUpgradeEquipmentAtSmith}
-                  className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
-                >
-                  <span>🔨 100G で装備を鍛錬・強化する (攻撃/防御UP & 採掘強化)</span>
-                </button>
+                <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
+                  <button
+                    onClick={handleUpgradeEquipmentAtSmith}
+                    className="w-full py-2 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
+                  >
+                    <span>🔨 100G で装備を鍛錬・強化する (攻撃/防御UP & 採掘強化)</span>
+                  </button>
+
+                  <div className="text-yellow-300 font-bold text-[11px] pt-1">🧱 素材クラフト武具錬成 (素材を消費):</div>
+                  <button
+                    onClick={() => handleCraftAtSmith('DRAGON_SLAYER')}
+                    className="w-full py-1.5 bg-red-950 hover:bg-red-900 border border-red-600 rounded flex justify-between px-3 text-[11px]"
+                  >
+                    <span>⚔️ ドラゴンスレイヤー (ATK+14 / 竜特効)</span>
+                    <span className="text-yellow-300">🪨鉄鉱石 + 150G</span>
+                  </button>
+                  <button
+                    onClick={() => handleCraftAtSmith('DRAGON_SHIELD')}
+                    className="w-full py-1.5 bg-indigo-950 hover:bg-indigo-900 border border-indigo-600 rounded flex justify-between px-3 text-[11px]"
+                  >
+                    <span>🛡️ 竜鱗の鏡盾 (DEF+9 / 暗視・反射)</span>
+                    <span className="text-yellow-300">💎魔法の結晶 + 150G</span>
+                  </button>
+                </div>
               )}
 
               {/* 🧙 鑑定士 (Identifier) */}
@@ -1328,7 +1409,7 @@ export default function App() {
                         onClick={() => handleBuyDynamicShopItem(shopItem)}
                         className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]"
                       >
-                        <span>{shopItem.emoji} {shopItem.name} {shopItem.uses ? `[${shopItem.uses}回]` : ''}</span>
+                        <span>{shopItem.emoji} {shopItem.name} {shopItem.uses ? `[${shopItem.uses}個]` : ''}</span>
                         <span className="text-yellow-300 font-bold">{shopItem.cost}G</span>
                       </button>
                     ))}
@@ -1343,6 +1424,7 @@ export default function App() {
                     gameState.inventory.map((invItem) => {
                       let price = 30;
                       if (invItem.category === 'MONEY') price = invItem.amount || 100;
+                      else if (invItem.category === 'MATERIAL') price = 40 * (invItem.uses || 1);
                       else if (invItem.category === 'EQUIPMENT') price = 80;
                       else if (invItem.category === 'JAR') price = 60;
                       else if (invItem.category === 'SPELLBOOK') price = 50 * (invItem.uses || 1);
@@ -1353,7 +1435,7 @@ export default function App() {
                           onClick={() => handleSellItemToShop(invItem)}
                           className="py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 rounded flex justify-between px-2 text-[10px]"
                         >
-                          <span>{invItem.emoji} {invItem.name} {invItem.uses ? `[回数:${invItem.uses}]` : ''}</span>
+                          <span>{invItem.emoji} {invItem.name} {invItem.uses ? `[個数:${invItem.uses}]` : ''}</span>
                           <span className="text-yellow-300 font-bold">売却: +{price}G</span>
                         </button>
                       );
@@ -1422,7 +1504,7 @@ export default function App() {
                 onClick={() => setActiveModal(null)}
                 className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded text-xs mt-2"
               >
-                買い物を終えて会話を閉じる
+                会話を閉じる
               </button>
             </div>
           </div>
