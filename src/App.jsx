@@ -351,9 +351,9 @@ export default function App() {
   const processTurnAfterAction = (state) => {
     let { player, monsterHouseRoom, inventory } = state;
 
-    // ARTIFACT PASSIVE: PHILOSOPHER'S STONE (👑 賢者の石 or 覚醒神具)
+    // ARTIFACT PASSIVE: PHILOSOPHER'S STONE (👑 賢者の石 or 覚醒神具 or isPhilosopherStone)
     const hasPhilosopherStone = inventory.some(
-      (i) => i.type === 'PHILOSOPHER_STONE' || i.name.includes('覚醒神具')
+      (i) => i.type === 'PHILOSOPHER_STONE' || i.name?.includes('覚醒神具') || i.isPhilosopherStone
     );
     if (hasPhilosopherStone) {
       player.hp = Math.min(player.maxHp, player.hp + 2);
@@ -806,11 +806,13 @@ export default function App() {
         let baseItem = { ...selectedJar.contents[0] };
 
         if (hasArtifact) {
-          // ARTIFACT FUSION (神器合体覚醒!)
+          // ARTIFACT FUSION (神器合体覚醒! Equipable Equipment structure)
+          baseItem.category = 'EQUIPMENT';
+          baseItem.type = baseItem.type === 'SHIELD' ? 'SHIELD' : 'WEAPON';
           baseItem.atkBonus = (baseItem.atkBonus || 10) + 50;
           baseItem.defBonus = (baseItem.defBonus || 10) + 30;
           baseItem.enchantments = ['全知全能', '暗視', '魔法反射', '狂乱', '吸血', '採掘強化'];
-          baseItem.type = 'PHILOSOPHER_STONE';
+          baseItem.isPhilosopherStone = true;
           baseItem.name = `🔥 覚醒神具 ${baseItem.name.replace(/✨ 合成済 /g, '')} (神の威光)`;
 
           state.inventory = state.inventory.filter((i) => i.id !== selectedJar.id);
@@ -878,7 +880,7 @@ export default function App() {
       sounds.playFanfare();
       setActiveModal('VICTORY');
       return;
-    } else if (item.type === 'PHILOSOPHER_STONE' || item.name.includes('覚醒神具')) {
+    } else if (item.type === 'PHILOSOPHER_STONE' || item.name?.includes('覚醒神具') || item.isPhilosopherStone) {
       addLog(`👑 ${item.name} は持っているだけで毎ターンHPが全快近く自動回復し、空腹が一切なくなります！`);
       sounds.playHeal();
       return;
@@ -920,7 +922,7 @@ export default function App() {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
         return;
       }
-    } else if (item.type === 'RAGE_POTION' || item.name.includes('狂乱')) {
+    } else if (item.type === 'RAGE_POTION' || item.name?.includes('狂乱')) {
       const atkBoost = 15;
       player.atk += atkBoost;
       player.hp = player.maxHp;
@@ -930,7 +932,7 @@ export default function App() {
       });
       addLog(`🩸 狂乱の薬を飲み干した！ 全身に血の気が巡り、攻撃力が +${atkBoost} 激増＆HPが全回復した！ (ATK: ${player.atk})`);
       sounds.playFanfare();
-    } else if (item.type === 'FOOD' || item.foodRestore > 0 || item.name.includes('パン')) {
+    } else if (item.type === 'FOOD' || item.foodRestore > 0 || item.name?.includes('パン')) {
       const restoreAmount = item.foodRestore || 40;
       player.food = Math.min(100, player.food + restoreAmount);
       addLog(`🍞 ${item.name} を食べて満腹度が ${restoreAmount} 回復した！ (満腹度: ${player.food}/100)`);
@@ -1329,7 +1331,7 @@ export default function App() {
     const { player, companions } = state;
 
     const petTemplates = {
-      WOLF: { name: 'ウルフ', emoji: '🐺', cost: 120, hp: 40, atk: 12, def: 4 },
+      WOLF: { name: 'オオカミ', emoji: '🐺', cost: 120, hp: 40, atk: 12, def: 4 },
       CAT: { name: 'キャット', emoji: '🐈', cost: 80, hp: 30, atk: 9, def: 3 },
       DRAGON: { name: 'ベビードラゴン', emoji: '🐉', cost: 250, hp: 80, atk: 20, def: 8 },
     };
@@ -1406,10 +1408,21 @@ export default function App() {
   };
 
   const handleEquipItem = (item) => {
-    if (item.type === 'WEAPON') {
-      setEquippedWeapon(equippedWeapon?.id === item.id ? null : item);
-    } else if (item.type === 'SHIELD') {
-      setEquippedShield(equippedShield?.id === item.id ? null : item);
+    if (!gameState) return;
+    const isShield = item.type === 'SHIELD' || item.name?.includes('盾');
+
+    if (isShield) {
+      const nextEquipped = equippedShield?.id === item.id ? null : item;
+      setEquippedShield(nextEquipped);
+      const diffDef = (nextEquipped?.defBonus || 0) - (equippedShield?.defBonus || 0);
+      gameState.player.def += diffDef;
+      addLog(nextEquipped ? `🛡️ 【装備】 ${item.name} を盾として装着した！ (DEF +${item.defBonus || 0})` : `🛡️ 【解除】 ${item.name} を外した。`);
+    } else {
+      const nextEquipped = equippedWeapon?.id === item.id ? null : item;
+      setEquippedWeapon(nextEquipped);
+      const diffAtk = (nextEquipped?.atkBonus || 0) - (equippedWeapon?.atkBonus || 0);
+      gameState.player.atk += diffAtk;
+      addLog(nextEquipped ? `⚔️ 【装備】 ${item.name} を武器として装着した！ (ATK +${item.atkBonus || 0})` : `⚔️ 【解除】 ${item.name} を外した。`);
     }
     sounds.playSelect();
   };

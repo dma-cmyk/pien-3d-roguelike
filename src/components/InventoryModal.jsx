@@ -16,7 +16,7 @@ export function InventoryModal({
   const filteredItems = inventory.filter((item) => {
     if (activeTab === 'ALL') return true;
     if (activeTab === 'ARTIFACT') return item.category === 'ARTIFACT';
-    if (activeTab === 'EQUIPMENT') return item.category === 'EQUIPMENT';
+    if (activeTab === 'EQUIPMENT') return item.category === 'EQUIPMENT' || item.name?.includes('覚醒神具');
     if (activeTab === 'SPELLBOOK') return item.category === 'SPELLBOOK';
     if (activeTab === 'CONSUMABLE') return item.category === 'CONSUMABLE';
     if (activeTab === 'MATERIAL') return item.category === 'MATERIAL';
@@ -77,13 +77,18 @@ export function InventoryModal({
               const isWeaponEquipped = equippedWeapon?.id === item.id;
               const isShieldEquipped = equippedShield?.id === item.id;
               const isEquipped = isWeaponEquipped || isShieldEquipped;
+              const isEquipable =
+                item.category === 'EQUIPMENT' ||
+                item.type === 'WEAPON' ||
+                item.type === 'SHIELD' ||
+                item.name?.includes('覚醒神具');
 
               return (
                 <div
                   key={item.id}
                   className={`p-3 rounded-lg border flex items-center justify-between transition-colors ${
-                    item.category === 'ARTIFACT'
-                      ? 'bg-gradient-to-r from-yellow-950/80 via-amber-900/60 to-yellow-950/80 border-yellow-400 shadow-lg'
+                    item.name?.includes('覚醒神具') || item.category === 'ARTIFACT'
+                      ? 'bg-gradient-to-r from-yellow-950/90 via-amber-900/70 to-red-950/90 border-yellow-400 shadow-xl'
                       : isEquipped
                       ? 'bg-indigo-950/80 border-indigo-500'
                       : 'bg-gray-800/80 border-gray-700 hover:border-gray-600'
@@ -95,7 +100,7 @@ export function InventoryModal({
                       <div className="flex items-center space-x-2 flex-wrap">
                         <span
                           className={`font-bold truncate ${
-                            item.category === 'ARTIFACT'
+                            item.name?.includes('覚醒神具') || item.category === 'ARTIFACT'
                               ? 'text-yellow-300 text-sm'
                               : 'text-white'
                           }`}
@@ -157,24 +162,24 @@ export function InventoryModal({
                       </button>
                     )}
 
-                    {/* Equipment Equip/Unequip Button */}
-                    {item.category === 'EQUIPMENT' && (
+                    {/* Equipment Equip/Unequip Button for Weapons, Shields, and Awakened Artifacts */}
+                    {isEquipable && (
                       <button
                         onClick={() => onEquipItem(item)}
                         className={`px-3 py-1.5 font-bold rounded text-xs shadow transition-transform active:scale-95 ${
                           isEquipped
                             ? 'bg-purple-700 hover:bg-purple-600 text-white'
-                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            : 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black border border-yellow-300 font-extrabold'
                         }`}
                       >
                         {isEquipped ? '外す' : '装備'}
                       </button>
                     )}
 
-                    {/* Consumables / Spellbooks / Artifacts Use Button */}
+                    {/* Consumables / Spellbooks / Pure Artifacts Use Button */}
                     {(item.category === 'CONSUMABLE' ||
                       item.category === 'SPELLBOOK' ||
-                      item.category === 'ARTIFACT') && (
+                      (item.category === 'ARTIFACT' && !isEquipable)) && (
                       <button
                         onClick={() => onUseItem(item)}
                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs shadow transition-transform active:scale-95"
