@@ -325,10 +325,36 @@ export default function App() {
     }
 
     processMultiCompanionsAI(state);
+    processFriendlyNpcCombatAI(state); // FRIENDLY NPCS SELF-DEFENSE COMBAT AI
     processEnemiesAI(state);
     updateFOV(state);
 
     setGameState({ ...state });
+  };
+
+  // FRIENDLY NPCS SELF-DEFENSE COMBAT AI
+  const processFriendlyNpcCombatAI = (state) => {
+    const { npcs, enemies } = state;
+
+    npcs.forEach((npc) => {
+      if (npc.hp <= 0) return;
+
+      const adjacentEnemy = enemies.find(
+        (e) => Math.abs(e.x - npc.x) <= 1 && Math.abs(e.y - npc.y) <= 1
+      );
+
+      if (adjacentEnemy) {
+        const dmg = Math.max(1, npc.atk - adjacentEnemy.def + Math.floor(Math.random() * 2));
+        adjacentEnemy.hp -= dmg;
+        addLog(`🛡️ 【自衛戦闘】 ${npc.emoji} ${npc.name} は正当防衛で ${adjacentEnemy.emoji} ${adjacentEnemy.name} に ${dmg} ダメージ与えた！`);
+        sounds.playAttack();
+
+        if (adjacentEnemy.hp <= 0) {
+          state.enemies = enemies.filter((e) => e.id !== adjacentEnemy.id);
+          addLog(`💥 ${npc.name} は襲いかかってきた ${adjacentEnemy.name} を見事に返り討ちにした！`);
+        }
+      }
+    });
   };
 
   const executePlayerAttack = (state, enemy) => {
@@ -493,10 +519,11 @@ export default function App() {
   };
 
   const processEnemiesAI = (state) => {
-    const { enemies, player, companions, grid } = state;
+    const { enemies, player, companions, npcs, grid } = state;
 
     enemies.forEach((enemy) => {
       let closestTarget = player;
+      let targetType = 'PLAYER';
       let minDist = Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y);
 
       companions.forEach((c) => {
@@ -504,6 +531,16 @@ export default function App() {
         if (d < minDist) {
           minDist = d;
           closestTarget = c;
+          targetType = 'PET';
+        }
+      });
+
+      npcs.forEach((n) => {
+        const d = Math.abs(n.x - enemy.x) + Math.abs(n.y - enemy.y);
+        if (d < minDist) {
+          minDist = d;
+          closestTarget = n;
+          targetType = 'NPC';
         }
       });
 
@@ -513,11 +550,14 @@ export default function App() {
         addLog(`💥 ${enemy.emoji} ${enemy.name} の攻撃！ ${closestTarget.name} に ${dmg} ダメージ！`);
         sounds.playHit();
 
-        if (closestTarget === player && player.hp <= 0) {
+        if (targetType === 'PLAYER' && player.hp <= 0) {
           handleGameOver(`${enemy.name} に倒された…`);
-        } else if (closestTarget !== player && closestTarget.hp <= 0) {
+        } else if (targetType === 'PET' && closestTarget.hp <= 0) {
           addLog(`💀 ${closestTarget.name} は ${enemy.name} に倒されてしまった！`);
           state.companions = companions.filter((c) => c.id !== closestTarget.id);
+        } else if (targetType === 'NPC' && closestTarget.hp <= 0) {
+          addLog(`💀 ${closestTarget.emoji} ${closestTarget.name} は ${enemy.name} に倒されて気絶してしまった！`);
+          state.npcs = npcs.filter((n) => n.id !== closestTarget.id);
         }
       } else if (minDist <= 5) {
         const dx = Math.sign(closestTarget.x - enemy.x);
@@ -528,9 +568,10 @@ export default function App() {
 
         const isPlayerOnNext = player.x === nextX && player.y === nextY;
         const isPetOnNext = companions.some((c) => c.x === nextX && c.y === nextY);
+        const isNpcOnNext = npcs.some((n) => n.x === nextX && n.y === nextY);
         const isEnemyOnNext = enemies.some((other) => other.id !== enemy.id && other.x === nextX && other.y === nextY);
 
-        if (grid[nextY]?.[nextX] === 'F' && !isPlayerOnNext && !isPetOnNext && !isEnemyOnNext) {
+        if (grid[nextY]?.[nextX] === 'F' && !isPlayerOnNext && !isPetOnNext && !isNpcOnNext && !isEnemyOnNext) {
           enemy.x = nextX;
           enemy.y = nextY;
         }
