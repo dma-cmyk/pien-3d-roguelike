@@ -1,105 +1,164 @@
-import { MONSTER_TEMPLATES, FRIENDLY_NPCS, WALL_TYPES } from './typesAndConstants';
+import { MATERIALS, EGOS, BASE_ITEMS, LEGENDARY_ARTIFACTS } from './typesAndConstants';
 
-// 1 Floor = +1 Grid Dimension Expansion (1F: 16x16, 2F: 17x17, 10F: 25x25, 20F: 35x35, 50F: 65x65...)
-export function getMapSizeForFloor(floorNumber) {
-  return 16 + (floorNumber - 1);
+export function generateRandomItem(x, y, floorNumber) {
+  const rand = Math.random();
+
+  // 15% Chance: Artifact
+  if (rand < 0.15 || floorNumber >= 8 && rand < 0.25) {
+    const art = LEGENDARY_ARTIFACTS[Math.floor(Math.random() * LEGENDARY_ARTIFACTS.length)];
+    return {
+      ...art,
+      id: `art_${Date.now()}_${Math.random()}`,
+      x,
+      y,
+      isIdentified: true,
+    };
+  }
+
+  // 25% Chance: Material
+  if (rand < 0.4) {
+    const matKeys = Object.keys(MATERIALS);
+    const selectedMatKey = matKeys[Math.floor(Math.random() * matKeys.length)];
+    const mat = MATERIALS[selectedMatKey];
+
+    return {
+      id: `mat_${Date.now()}_${Math.random()}`,
+      x,
+      y,
+      name: mat.name,
+      emoji: mat.emoji,
+      category: 'MATERIAL',
+      type: selectedMatKey,
+      uses: 1 + Math.floor(Math.random() * 2),
+      isIdentified: true,
+    };
+  }
+
+  // 30% Chance: Dynamic Ego + Material Named Equipment
+  if (rand < 0.7) {
+    const matKeys = Object.keys(MATERIALS);
+    const selectedMatKey = matKeys[Math.floor(Math.random() * matKeys.length)];
+    const mat = MATERIALS[selectedMatKey];
+
+    const baseItem = BASE_ITEMS[Math.floor(Math.random() * BASE_ITEMS.length)];
+    const ego = EGOS[Math.floor(Math.random() * EGOS.length)];
+
+    const calculatedAtk = Math.floor(baseItem.baseAtk * mat.multiplier + ego.atkBonus);
+    const calculatedDef = Math.floor(baseItem.baseDef * mat.multiplier + ego.defBonus);
+    const fullName = `${ego.name} ${mat.prefix} ${baseItem.emoji} ${baseItem.name}`;
+
+    return {
+      id: `equip_${Date.now()}_${Math.random()}`,
+      x,
+      y,
+      name: fullName,
+      emoji: baseItem.emoji,
+      category: 'EQUIPMENT',
+      type: baseItem.type,
+      atkBonus: calculatedAtk,
+      defBonus: calculatedDef,
+      enchantments: [ego.enchant],
+      isIdentified: Math.random() < 0.6,
+    };
+  }
+
+  // 30% Chance: Consumables / Spellbooks / Jars
+  const standardPool = [
+    { name: '薬草', emoji: '🌿', category: 'CONSUMABLE', type: 'HERB', heal: 30 },
+    { name: '特効薬', emoji: '🧪', category: 'CONSUMABLE', type: 'POTION', heal: 60 },
+    { name: 'パン', emoji: '🍞', category: 'CONSUMABLE', type: 'FOOD', foodRestore: 50 },
+    { name: 'イオの書', emoji: '📜', category: 'SPELLBOOK', type: 'SPELLBOOK', uses: 3 },
+    { name: 'テイムの書', emoji: '📖', category: 'SPELLBOOK', type: 'TAME', uses: 2 },
+    { name: '合成の壺', emoji: '🏺', category: 'JAR', type: 'SYNTHESIS', capacity: 4, contents: [] },
+    { name: '識別の壺', emoji: '🔮', category: 'JAR', type: 'IDENTIFY', capacity: 3, contents: [] },
+    { name: '変化の壺', emoji: '✨', category: 'JAR', type: 'CHANGE', capacity: 3, contents: [] },
+    { name: '保存の壺', emoji: '📦', category: 'JAR', type: 'STORAGE', capacity: 4, contents: [] },
+  ];
+
+  const tpl = standardPool[Math.floor(Math.random() * standardPool.length)];
+  return {
+    ...tpl,
+    id: `std_${Date.now()}_${Math.random()}`,
+    x,
+    y,
+    isIdentified: true,
+  };
 }
 
-// ----------------------------------------------------
-// HACK & SLASH: EGO + MATERIAL + BASE ITEM DYNAMIC GENERATION
-// ----------------------------------------------------
-export const MATERIALS = [
-  { prefix: '木製', emoji: '🪵', atkMult: 1.0, defMult: 1.0, costMult: 1.0 },
-  { prefix: '石製', emoji: '🪨', atkMult: 1.3, defMult: 1.3, costMult: 1.3 },
-  { prefix: '鉄製', emoji: '⚙️', atkMult: 1.7, defMult: 1.7, costMult: 1.6 },
-  { prefix: '鋼鉄製', emoji: '⚔️', atkMult: 2.3, defMult: 2.2, costMult: 2.2 },
-  { prefix: 'ダイヤ製', emoji: '💎', atkMult: 3.2, defMult: 3.0, costMult: 3.2 },
-  { prefix: 'オリハルコン製', emoji: '🌟', atkMult: 4.2, defMult: 4.0, costMult: 4.5 },
+const MONSTER_TEMPLATES = [
+  { name: 'スライム', emoji: '💧', hp: 18, atk: 6, def: 2, exp: 12, minFloor: 1, maxFloor: 99 },
+  { name: 'ゴブリン', emoji: '👺', hp: 28, atk: 10, def: 4, exp: 20, minFloor: 1, maxFloor: 99 },
+  { name: 'オーク', emoji: '🐗', hp: 45, atk: 15, def: 6, exp: 35, minFloor: 2, maxFloor: 99 },
+  { name: 'スケルトン', emoji: '💀', hp: 60, atk: 20, def: 8, exp: 50, minFloor: 3, maxFloor: 99 },
+  { name: 'ミミック', emoji: '🧰', hp: 75, atk: 26, def: 12, exp: 70, minFloor: 4, maxFloor: 99 },
+  { name: 'ドラゴン', emoji: '🐉', hp: 120, atk: 35, def: 18, exp: 120, minFloor: 5, maxFloor: 99 },
 ];
 
-export const EGOS = [
-  { prefix: '狂乱の', atkBonus: 8, defBonus: 0, enchant: '狂乱', costAdd: 100 },
-  { prefix: '灼熱の', atkBonus: 5, defBonus: 0, enchant: '火属性', costAdd: 80 },
-  { prefix: '雷撃の', atkBonus: 6, defBonus: 0, enchant: '会心', costAdd: 90 },
-  { prefix: '暗夜の', atkBonus: 2, defBonus: 2, enchant: '暗視', costAdd: 120 },
-  { prefix: '堅牢な', atkBonus: 0, defBonus: 6, enchant: '防護', costAdd: 70 },
-  { prefix: '吸血の', atkBonus: 4, defBonus: 1, enchant: '吸血', costAdd: 110 },
-  { prefix: '採掘の', atkBonus: 3, defBonus: 0, enchant: '採掘強化', costAdd: 80 },
-  { prefix: '伝説の', atkBonus: 12, defBonus: 6, enchant: '全知全能', costAdd: 250 },
+const FRIENDLY_NPCS = [
+  { name: '鍛冶屋のガンテツ', emoji: '👷', type: 'SMITH' },
+  { name: '鑑定士マロン', emoji: '🧙', type: 'IDENTIFIER' },
+  { name: '道具屋トネコ', emoji: '👨', type: 'SHOP' },
+  { name: '占い師シルフィ', emoji: '🧕', type: 'TELLER' },
+  { name: 'ギャンブラーのジャック', emoji: '🤵', type: 'GAMBLER' },
+  { name: '魔物使いのガゼル', emoji: '🧔', type: 'TAMER' },
 ];
 
-export const BASE_ITEMS = [
-  { name: '剣', emoji: '⚔️', category: 'EQUIPMENT', type: 'WEAPON', baseAtk: 4, baseDef: 0 },
-  { name: '短剣', emoji: '🗡️', category: 'EQUIPMENT', type: 'WEAPON', baseAtk: 3, baseDef: 0 },
-  { name: '大剣', emoji: '🪓', category: 'EQUIPMENT', type: 'WEAPON', baseAtk: 7, baseDef: 0 },
-  { name: '盾', emoji: '🛡️', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 3 },
-  { name: '大盾', emoji: '🔰', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 6 },
-  { name: '鎧', emoji: '🦺', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 5 },
-];
-
-// LEGENDARY ARTIFACTS
-export const LEGENDARY_ARTIFACTS = [
-  { name: '👑 賢者の石', emoji: '👑', category: 'ARTIFACT', type: 'PHILOSOPHER_STONE', effect: '毎ターンHP自然回復 & 満腹度無限' },
-  { name: '🔱 アテナの神槍', emoji: '🔱', category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 30, defBonus: 5, enchantments: ['全知全能', '会心', '火属性'] },
-  { name: '🔰 イージスの神盾', emoji: '🔰', category: 'EQUIPMENT', type: 'SHIELD', atkBonus: 5, defBonus: 25, enchantments: ['暗視', '魔法反射', '防護'] },
-  { name: '🏆 🥺のぴえんオーブ', emoji: '🏆', category: 'ARTIFACT', type: 'VICTORY_ORB', effect: '持っているだけで迷宮脱出の奇跡を起こす' },
-];
+const WALL_TYPES = {
+  EARTH: { type: 'EARTH', name: '土の壁', emoji: '🪨', maxHp: 15, color: '#8B4513', dropChance: 0.15, dropType: 'FOOD' },
+  STONE: { type: 'STONE', name: '岩石の壁', emoji: '🧱', maxHp: 35, color: '#696969', dropChance: 0.25, dropType: 'ORE' },
+  ORE: { type: 'ORE', name: '鉱石の脈', emoji: '💎', maxHp: 50, color: '#4682B4', dropChance: 0.6, dropType: 'ORE' },
+  OBSIDIAN: { type: 'OBSIDIAN', name: '黒曜石の魔壁', emoji: '⬛', maxHp: 90, color: '#1A1A1A', dropChance: 0.8, dropType: 'ORE' },
+};
 
 export function generateDungeonFloor(floorNumber) {
-  const mapSize = getMapSizeForFloor(floorNumber);
+  const baseSize = 16;
+  const sizeGrowth = Math.floor(floorNumber * 1.2);
+  const mapSize = Math.min(42, baseSize + sizeGrowth);
 
-  // Initialize Empty Grids with Per-Floor Incremental Map Size
-  const grid = Array(mapSize)
-    .fill(null)
-    .map(() => Array(mapSize).fill('W'));
+  const grid = Array.from({ length: mapSize }, () => Array(mapSize).fill('W'));
+  const visitedGrid = Array.from({ length: mapSize }, () => Array(mapSize).fill(false));
+  const visibleGrid = Array.from({ length: mapSize }, () => Array(mapSize).fill(false));
+  const wallData = Array.from({ length: mapSize }, () => Array(mapSize).fill(null));
 
-  const wallData = Array(mapSize)
-    .fill(null)
-    .map(() => Array(mapSize).fill(null));
-
-  const visitedGrid = Array(mapSize)
-    .fill(null)
-    .map(() => Array(mapSize).fill(false));
-
-  const visibleGrid = Array(mapSize)
-    .fill(null)
-    .map(() => Array(mapSize).fill(false));
-
+  const roomCount = Math.min(10, 4 + Math.floor(floorNumber * 0.6));
   const rooms = [];
-  const minRoomSize = 4;
-  const maxRoomSize = Math.min(16, 6 + Math.floor(floorNumber * 0.35));
-  const targetRoomCount = 4 + Math.floor(floorNumber * 0.45);
 
-  // Generate Rooms
-  for (let i = 0; i < targetRoomCount * 5 && rooms.length < targetRoomCount; i++) {
-    const w = minRoomSize + Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1));
-    const h = minRoomSize + Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1));
+  for (let i = 0; i < roomCount; i++) {
+    const w = 4 + Math.floor(Math.random() * 4);
+    const h = 4 + Math.floor(Math.random() * 4);
     const x = 1 + Math.floor(Math.random() * (mapSize - w - 2));
     const y = 1 + Math.floor(Math.random() * (mapSize - h - 2));
 
-    const overlaps = rooms.some(
-      (r) => x < r.x + r.w + 1 && x + w + 1 > r.x && y < r.y + r.h + 1 && y + h + 1 > r.y
-    );
+    let overlap = false;
+    for (const r of rooms) {
+      if (x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y) {
+        overlap = true;
+        break;
+      }
+    }
 
-    if (!overlaps) {
+    if (!overlap) {
       rooms.push({ x, y, w, h });
+      for (let ry = y; ry < y + h; ry++) {
+        for (let rx = x; rx < x + w; rx++) {
+          grid[ry][rx] = 'F';
+        }
+      }
     }
   }
 
-  // Carve Rooms
-  rooms.forEach((r) => {
-    for (let ry = r.y; ry < r.y + r.h; ry++) {
-      for (let rx = r.x; rx < r.x + r.w; rx++) {
+  if (rooms.length === 0) {
+    rooms.push({ x: 2, y: 2, w: 6, h: 6 });
+    for (let ry = 2; ry < 8; ry++) {
+      for (let rx = 2; rx < 8; rx++) {
         grid[ry][rx] = 'F';
       }
     }
-  });
+  }
 
-  // Connect Rooms with Corridors
   for (let i = 0; i < rooms.length - 1; i++) {
     const r1 = rooms[i];
     const r2 = rooms[i + 1];
-
     let cx = Math.floor(r1.x + r1.w / 2);
     let cy = Math.floor(r1.y + r1.h / 2);
     const targetCx = Math.floor(r2.x + r2.w / 2);
@@ -115,7 +174,6 @@ export function generateDungeonFloor(floorNumber) {
     }
   }
 
-  // Assign Wall Types to remaining Wall Tiles
   for (let y = 0; y < mapSize; y++) {
     for (let x = 0; x < mapSize; x++) {
       if (grid[y][x] === 'W') {
@@ -144,14 +202,12 @@ export function generateDungeonFloor(floorNumber) {
     }
   }
 
-  // Player Spawn Point in Room 0
   const spawnRoom = rooms[0];
   const playerSpawn = {
     x: Math.floor(spawnRoom.x + spawnRoom.w / 2),
     y: Math.floor(spawnRoom.y + spawnRoom.h / 2),
   };
 
-  // Stairs Position in Last Room
   const lastRoom = rooms[rooms.length - 1];
   const stairsPos = {
     x: Math.floor(lastRoom.x + lastRoom.w / 2),
@@ -204,18 +260,17 @@ export function generateDungeonFloor(floorNumber) {
       y: pos.y,
       hp: 100,
       maxHp: 100,
-      atk: 12,
-      def: 10,
+      atk: 12 + Math.floor(floorNumber * 2),
+      def: 10 + Math.floor(floorNumber * 1.5),
     });
   }
 
   const enemies = [];
   const enemyCount = 3 + Math.floor(floorNumber * 2.0);
   const eligibleMonsters = MONSTER_TEMPLATES.filter(
-    (m) => floorNumber >= m.minFloor && floorNumber <= m.maxFloor + 2
+    (m) => floorNumber >= m.minFloor && floorNumber <= m.maxFloor
   );
 
-  // MONSTER HOUSE GENERATION (25% Chance on Floor >= 2)
   let monsterHouseRoom = null;
   if (floorNumber >= 2 && Math.random() < 0.25 && rooms.length >= 3) {
     monsterHouseRoom = rooms[1 + Math.floor(Math.random() * (rooms.length - 2))];
@@ -230,11 +285,11 @@ export function generateDungeonFloor(floorNumber) {
         emoji: template.emoji,
         x: pos.x,
         y: pos.y,
-        hp: template.hp + Math.floor(floorNumber * 3),
-        maxHp: template.hp + Math.floor(floorNumber * 3),
-        atk: template.atk + Math.floor(floorNumber * 1.5),
-        def: template.def + Math.floor(floorNumber * 0.8),
-        exp: template.exp,
+        hp: template.hp + Math.floor(floorNumber * 12),
+        maxHp: template.hp + Math.floor(floorNumber * 12),
+        atk: template.atk + Math.floor(floorNumber * 3.5),
+        def: template.def + Math.floor(floorNumber * 2.0),
+        exp: template.exp + Math.floor(floorNumber * 8),
         isBoss: false,
       });
     }
@@ -246,7 +301,7 @@ export function generateDungeonFloor(floorNumber) {
     }
   }
 
-  // Standard Enemies Placement
+  // Standard Enemies Placement with Floor Scaling Stats
   for (let i = 0; i < enemyCount; i++) {
     const template = eligibleMonsters[Math.floor(Math.random() * eligibleMonsters.length)] || MONSTER_TEMPLATES[0];
     const pos = getEmptyFloor();
@@ -257,11 +312,11 @@ export function generateDungeonFloor(floorNumber) {
         emoji: template.emoji,
         x: pos.x,
         y: pos.y,
-        hp: template.hp + Math.floor(floorNumber * 3),
-        maxHp: template.hp + Math.floor(floorNumber * 3),
-        atk: template.atk + Math.floor(floorNumber * 1.5),
-        def: template.def + Math.floor(floorNumber * 0.8),
-        exp: template.exp,
+        hp: template.hp + Math.floor(floorNumber * 12),
+        maxHp: template.hp + Math.floor(floorNumber * 12),
+        atk: template.atk + Math.floor(floorNumber * 3.5),
+        def: template.def + Math.floor(floorNumber * 2.0),
+        exp: template.exp + Math.floor(floorNumber * 8),
         isBoss: false,
       });
     }
@@ -273,7 +328,6 @@ export function generateDungeonFloor(floorNumber) {
     wallData,
     visitedGrid,
     visibleGrid,
-    rooms,
     monsterHouseRoom,
     playerSpawn,
     stairsPos,
@@ -281,121 +335,4 @@ export function generateDungeonFloor(floorNumber) {
     npcs,
     enemies,
   };
-}
-
-export function generateRandomItem(x, y, floorNumber) {
-  const rand = Math.random();
-  const id = `item_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-
-  // Rare Chance for Legendary Artifact Drop (5% on Floor >= 3)
-  if (floorNumber >= 3 && Math.random() < 0.06) {
-    const art = LEGENDARY_ARTIFACTS[Math.floor(Math.random() * LEGENDARY_ARTIFACTS.length)];
-    return {
-      id, x, y,
-      ...art,
-      isIdentified: true,
-    };
-  }
-
-  if (rand < 0.2) {
-    return { id, x, y, name: 'パン', emoji: '🍞', category: 'CONSUMABLE', type: 'FOOD', foodRestore: 40, isIdentified: true };
-  } else if (rand < 0.38) {
-    const isHerb = Math.random() < 0.6;
-    return {
-      id, x, y,
-      name: isHerb ? '薬草' : '謎のポーション',
-      emoji: isHerb ? '🌿' : '🧪',
-      category: 'CONSUMABLE',
-      type: isHerb ? 'HERB' : 'POTION',
-      heal: 30,
-      isIdentified: isHerb,
-    };
-  } else if (rand < 0.52) {
-    // MATERIAL DROPS
-    const matRand = Math.random();
-    let matName = '鉄鉱石';
-    let matEmoji = '🪨';
-    let matType = 'IRON_ORE';
-
-    if (matRand < 0.4) {
-      matName = '魔法の結晶';
-      matEmoji = '💎';
-      matType = 'MANA_CRYSTAL';
-    } else if (matRand < 0.7) {
-      matName = '竜のうろこ';
-      matEmoji = '🪵';
-      matType = 'DRAGON_SCALE';
-    }
-
-    return {
-      id, x, y,
-      name: matName,
-      emoji: matEmoji,
-      category: 'MATERIAL',
-      type: matType,
-      uses: 1,
-      isIdentified: true,
-    };
-  } else if (rand < 0.65) {
-    const isMeat = Math.random() < 0.5;
-    return {
-      id, x, y,
-      name: isMeat ? '魔物の肉' : 'テイムの書',
-      emoji: isMeat ? '🥩' : '📖',
-      category: isMeat ? 'CONSUMABLE' : 'SPELLBOOK',
-      type: isMeat ? 'FOOD' : 'TAME',
-      uses: isMeat ? 1 : 3,
-      foodRestore: isMeat ? 60 : 0,
-      isIdentified: true,
-    };
-  } else if (rand < 0.88) {
-    // HACK & SLASH DYNAMIC EQUIPMENT: EGO + MATERIAL + BASE ITEM
-    const base = BASE_ITEMS[Math.floor(Math.random() * BASE_ITEMS.length)];
-
-    // Higher floor = higher chance for rare materials
-    const maxMatIdx = Math.min(MATERIALS.length - 1, Math.floor(floorNumber * 0.8) + 1);
-    const mat = MATERIALS[Math.floor(Math.random() * (maxMatIdx + 1))];
-
-    // Ego Roll (60% chance to have Ego)
-    const hasEgo = Math.random() < 0.6;
-    const ego = hasEgo ? EGOS[Math.floor(Math.random() * EGOS.length)] : null;
-
-    const fullName = `${ego ? ego.prefix + ' ' : ''}${mat.prefix} ${base.name}`;
-    const calculatedAtk = Math.floor(base.baseAtk * mat.atkMult) + (ego?.atkBonus || 0);
-    const calculatedDef = Math.floor(base.baseDef * mat.defMult) + (ego?.defBonus || 0);
-    const enchantments = ego ? [ego.enchant] : [];
-
-    return {
-      id, x, y,
-      name: fullName,
-      emoji: base.emoji,
-      category: 'EQUIPMENT',
-      type: base.type,
-      atkBonus: calculatedAtk,
-      defBonus: calculatedDef,
-      enchantments,
-      isIdentified: true,
-    };
-  } else if (rand < 0.95) {
-    return {
-      id, x, y,
-      name: 'イオの書',
-      emoji: '📜',
-      category: 'SPELLBOOK',
-      type: 'SPELLBOOK',
-      uses: 4,
-      isIdentified: true,
-    };
-  } else {
-    return {
-      id, x, y,
-      name: '合成の壺',
-      emoji: '🏺',
-      category: 'JAR',
-      type: 'SYNTHESIS',
-      capacity: 3,
-      contents: [],
-      isIdentified: true,
-    };
-  }
 }

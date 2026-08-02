@@ -457,13 +457,38 @@ export default function App() {
       addLog(`💀 ${enemy.emoji} ${enemy.name} を倒した！ (Exp +${enemy.exp})`);
       state.enemies = state.enemies.filter((e) => e.id !== enemy.id);
 
-      if (enemy.isBoss && state.floor >= 10) {
-        setActiveModal('VICTORY');
+      // BOSS DEFEAT REWARD LOGIC
+      if (enemy.isBoss) {
+        const expReward = 300 + state.floor * 100;
+        addLog(`🏆 🌟 【裏ボス撃破】 ${enemy.emoji} ${enemy.name} を見事に討ち取った！！ (ボーナスExp +${expReward})`);
         sounds.playFanfare();
-        return;
-      }
 
-      distributeExpAndCheckLevelUps(state, enemy.exp, player.name);
+        // 99F FINAL VICTORY CLEAR
+        if (state.floor >= 99) {
+          setActiveModal('VICTORY');
+          return;
+        }
+
+        // Drop Boss Legendary Artifact Reward
+        state.items.push({
+          id: `boss_artifact_${Date.now()}`,
+          x: enemy.x,
+          y: enemy.y,
+          name: `👑 ${state.floor}F 撃破の証・神の宝珠`,
+          emoji: '👑',
+          category: 'ARTIFACT',
+          type: 'PHILOSOPHER_STONE',
+          effect: '毎ターンHP全回復 & 満腹度無限',
+          atkBonus: 30 + state.floor * 2,
+          defBonus: 20 + state.floor,
+          enchantments: ['全知全能', '暗視', '魔法反射'],
+          isIdentified: true,
+        });
+
+        distributeExpAndCheckLevelUps(state, expReward, player.name);
+      } else {
+        distributeExpAndCheckLevelUps(state, enemy.exp, player.name);
+      }
     }
   };
 
@@ -691,8 +716,8 @@ export default function App() {
       c.y = dungeon.playerSpawn.y;
     });
 
-    // DYNAMIC GEMINI AI ARTIFACT GENERATION ON FLOOR >= 3
-    if (nextFloor >= 3 && Math.random() < 0.4) {
+    // DYNAMIC GEMINI AI ARTIFACT GENERATION ON FLOOR >= 3 (Random Floor Drop)
+    if (nextFloor >= 3 && Math.random() < 0.35) {
       const aiArtifact = await generateArtifactByGemini(nextFloor, state.playerName);
       if (aiArtifact) {
         state.items.push({
@@ -704,7 +729,8 @@ export default function App() {
       }
     }
 
-    if (nextFloor === 5 || nextFloor === 10) {
+    // 🤖 EVERY 5 FLOORS (5F, 10F, 15F, 20F, 25F, 30F...) -> GEMINI SCALED BOSS SPONSOR
+    if (nextFloor % 5 === 0) {
       const boss = await generateBossData(nextFloor);
       setBossInfo(boss);
       state.enemies.push({
@@ -717,10 +743,11 @@ export default function App() {
         maxHp: boss.hp,
         atk: boss.atk,
         def: boss.def,
-        exp: 200,
+        exp: 300 + nextFloor * 50,
         isBoss: true,
       });
       setActiveModal('BOSS_ANN');
+      addLog(`🚨 【Gemini AI 創世裏ボス降臨】 地下 ${nextFloor} 階に君臨する巨大ボス 【${boss.name}】 が出現した！！`);
     }
 
     updateFOV(state);
@@ -1955,8 +1982,11 @@ export default function App() {
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50">
           <div className="bg-red-950 border-4 border-red-500 rounded-xl p-6 max-w-lg w-full text-white text-center font-retro shadow-2xl animate-pulse">
             <div className="text-5xl mb-3">{bossInfo.emoji}</div>
-            <div className="text-red-400 text-xs font-bold tracking-widest mb-1">【強敵出現】</div>
+            <div className="text-red-400 text-xs font-bold tracking-widest mb-1">【強敵出現・階層裏ボス】</div>
             <h2 className="text-2xl text-yellow-300 font-bold mb-3">{bossInfo.name}</h2>
+            <div className="text-xs text-yellow-400 mb-2">
+              HP: {bossInfo.hp} / ATK: {bossInfo.atk} / DEF: {bossInfo.def}
+            </div>
             <p className="text-sm text-red-200 bg-black/70 p-3 rounded border border-red-800 mb-6 italic">
               「{bossInfo.quote}」
             </p>
@@ -1991,7 +2021,7 @@ export default function App() {
             <div className="text-6xl mb-3">🏆</div>
             <h2 className="text-3xl text-yellow-300 font-bold mb-2">迷宮完全制覇！</h2>
             <p className="text-sm text-yellow-100 mb-6">
-              伝説のアーティファクトを手に入れ、🥺の不思議な迷宮 を見事脱出した！
+              伝説のアーティファクトを手に入れ、🥺の不思議な迷宮 最深部を見事踏破脱出した！
             </p>
             <button
               onClick={() => setActiveModal('TITLE')}

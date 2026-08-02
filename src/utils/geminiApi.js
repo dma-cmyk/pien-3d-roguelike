@@ -14,23 +14,29 @@ export function storeApiKey(key) {
   }
 }
 
+// 🤖 DYNAMIC GEMINI BOSS GENERATOR (Scales dynamically per floor)
 export async function generateBossData(floorNumber) {
   const apiKey = getStoredApiKey();
+  const scaledHp = Math.floor(150 + floorNumber * 50);
+  const scaledAtk = Math.floor(20 + floorNumber * 6);
+  const scaledDef = Math.floor(10 + floorNumber * 3.5);
+
   if (!apiKey) {
-    return getFallbackBoss(floorNumber);
+    return getFallbackBoss(floorNumber, scaledHp, scaledAtk, scaledDef);
   }
 
   try {
-    const prompt = `ローグライクRPGの地下${floorNumber}階のボスモンスターを1体考えてください。
+    const prompt = `ローグライクRPG「🥺の不思議な迷宮」の地下${floorNumber}階に君臨する巨大ボスモンスターを創作してください。
+地下${floorNumber}階にふさわしい、恐ろしくも個性的でかっこいいボス名と決めセリフを考えてください。
 JSONフォーマットのみで返答してください。
 JSON構造:
 {
-  "name": "ボス名",
-  "emoji": "ボスを表す絵文字1文字",
-  "hp": ${100 + floorNumber * 35},
-  "atk": ${15 + floorNumber * 4},
-  "def": ${8 + floorNumber * 2},
-  "quote": "ボス登場時の決めセリフ"
+  "name": "地下${floorNumber}階の裏ボス名",
+  "emoji": "ボスを表す迫力ある絵文字1文字 (🐉, 💀, 👿, 👹, 🐙, 👾, 👁️, 👑など)",
+  "hp": ${scaledHp},
+  "atk": ${scaledAtk},
+  "def": ${scaledDef},
+  "quote": "ボス登場時の威圧的な決めセリフ"
 }`;
 
     const res = await fetch(
@@ -48,12 +54,18 @@ JSON構造:
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (text) {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      return {
+        ...parsed,
+        hp: parsed.hp || scaledHp,
+        atk: parsed.atk || scaledAtk,
+        def: parsed.def || scaledDef,
+      };
     }
   } catch (err) {
     console.warn('Gemini API Boss Gen failed, fallback used:', err);
   }
-  return getFallbackBoss(floorNumber);
+  return getFallbackBoss(floorNumber, scaledHp, scaledAtk, scaledDef);
 }
 
 export async function generateNpcDialogue(npcEmoji, npcName, gameState) {
@@ -105,8 +117,8 @@ JSON構造:
   "name": "神々しい伝説アーティファクト名",
   "emoji": "適切な絵文字1文字 (👑, 🔮, 🔱, 💎, 🧿, 📿, 🌟など)",
   "effect": "神秘的な超絶効果のフレーバー説明",
-  "atkBonus": ${20 + floorNumber * 3},
-  "defBonus": ${15 + floorNumber * 2},
+  "atkBonus": ${20 + floorNumber * 4},
+  "defBonus": ${15 + floorNumber * 3},
   "enchantments": ["全知全能", "会心", "暗視"]
 }`;
 
@@ -145,13 +157,23 @@ JSON構造:
   return getFallbackArtifact(floorNumber);
 }
 
-function getFallbackBoss(floor) {
-  const bosses = [
-    { name: '🔥 獄炎の魔竜', emoji: '🐉', hp: 200, atk: 25, def: 10, quote: '我が炎で灰となるがいい！' },
-    { name: '💀 狂乱のデスロード', emoji: '💀', hp: 350, atk: 35, def: 18, quote: '貴様の魂を我がコレクションに加えよう…' },
-    { name: '👑 迷宮の支配者・ぴえん帝', emoji: '🥺', hp: 600, atk: 50, def: 25, quote: '🥺 迷宮の最深部へよくぞ来た… 我を倒してみせよ！' },
+function getFallbackBoss(floor, hp, atk, def) {
+  const bossNames = [
+    { name: `🔥 地下${floor}F 獄炎の魔竜`, emoji: '🐉', quote: '我が灼熱の炎で灰と化すがよい！' },
+    { name: `💀 地下${floor}F 狂乱のデスロード`, emoji: '💀', quote: '貴様の魂を我がコレクションに加えよう…' },
+    { name: `👑 地下${floor}F 迷宮の支配者・ぴえん帝`, emoji: '🥺', quote: '🥺 よくぞここまで到達した… 我を倒してみせよ！' },
+    { name: `👿 地下${floor}F 虚無の魔神クラーケン`, emoji: '🐙', quote: '深淵の闇に呑まれて消え去れ！' },
+    { name: `👹 地下${floor}F 冥府の破滅王バイモン`, emoji: '👹', quote: 'クハハハ！ 我が絶対的な力にひれ伏すがよい！' },
   ];
-  return bosses[Math.min(bosses.length - 1, Math.floor(floor / 4))];
+  const tpl = bossNames[(Math.floor(floor / 5) - 1) % bossNames.length] || bossNames[0];
+  return {
+    name: tpl.name,
+    emoji: tpl.emoji,
+    hp,
+    atk,
+    def,
+    quote: tpl.quote,
+  };
 }
 
 function getFallbackDialogue(emoji, name) {
@@ -174,8 +196,8 @@ function getFallbackArtifact(floor) {
     category: 'ARTIFACT',
     type: 'PHILOSOPHER_STONE',
     effect: '毎ターンHP自然回復 & 満腹度無限',
-    atkBonus: 15,
-    defBonus: 10,
+    atkBonus: 15 + floor * 2,
+    defBonus: 10 + floor,
     enchantments: ['全知全能', '暗視'],
     isIdentified: true,
   };
