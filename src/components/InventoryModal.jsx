@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { X, Package, Shield, Wand2, Sparkles, Layers, Trophy } from 'lucide-react';
 
-export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUseItem, onEquipItem, onSynthesize, onClose }) {
+export function InventoryModal({
+  inventory,
+  equippedWeapon,
+  equippedShield,
+  onUseItem,
+  onEquipItem,
+  onOpenJarInputModal,
+  onClose,
+}) {
   const [activeTab, setActiveTab] = useState('ALL');
 
   // Tab Filters
@@ -34,12 +42,12 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
         <div className="flex space-x-1 border-b border-gray-800 pb-2 mb-3 overflow-x-auto text-xs">
           {[
             { id: 'ALL', label: 'すべて' },
-            { id: 'ARTIFACT', label: '🏆 神器' },
+            { id: 'JAR', label: '🏺 壺' },
             { id: 'EQUIPMENT', label: '⚔️ 装備' },
             { id: 'SPELLBOOK', label: '📖 魔法' },
             { id: 'CONSUMABLE', label: '🧪 消費' },
             { id: 'MATERIAL', label: '🧱 素材' },
-            { id: 'JAR', label: '🏺 壺' },
+            { id: 'ARTIFACT', label: '🏆 神器' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -65,6 +73,7 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
               const isEquippedShd = equippedShield?.id === item.id;
               const isEquipped = isEquippedWep || isEquippedShd;
               const isArtifact = item.category === 'ARTIFACT';
+              const isJar = item.category === 'JAR';
 
               return (
                 <div
@@ -97,13 +106,26 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
                         {item.category === 'SPELLBOOK' && `呪文・魔法書アイテム`}
                         {item.category === 'CONSUMABLE' && (item.heal ? `回復量: ${item.heal}` : '消費アイテム')}
                         {item.category === 'MATERIAL' && `クラフト強化用素材 (所持数: ${item.uses || 1})`}
-                        {item.category === 'JAR' && `合成可能 (容量: ${item.capacity - (item.contents?.length || 0)})`}
+                        {item.category === 'JAR' && (
+                          <span className="text-yellow-300 font-bold">
+                            容量: {(item.capacity || 4) - (item.contents?.length || 0)}/{(item.capacity || 4)} {item.contents?.length > 0 ? `(中身: ${item.contents.map(c=>c.name).join(', ')})` : '(空)'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center space-x-1.5 text-xs">
+                    {isJar && (
+                      <button
+                        onClick={() => onOpenJarInputModal(item)}
+                        className="px-2 py-1 bg-amber-600 hover:bg-amber-500 rounded text-white text-[11px] font-bold"
+                      >
+                        🏺 入れる
+                      </button>
+                    )}
+
                     {item.category === 'EQUIPMENT' && (
                       <button
                         onClick={() => onEquipItem(item)}
@@ -129,8 +151,8 @@ export function InventoryModal({ inventory, equippedWeapon, equippedShield, onUs
         </div>
 
         {/* Footer info */}
-        <div className="border-t border-gray-800 pt-2 mt-2 text-[11px] text-yellow-300 text-center font-bold">
-          🏆 伝説のアーティファクト 🏆 は所持するだけで奇跡的な常時回復や超能力をもたらします
+        <div className="border-t border-gray-800 pt-2 mt-2 text-[11px] text-amber-300 text-center font-bold">
+          🏺 壺に装備を連続で放り込むと合成強化され、アイテムを入れると変化・識別が起こります！
         </div>
       </div>
     </div>

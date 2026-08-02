@@ -77,6 +77,7 @@ export default function App() {
   const [newPetName, setNewPetName] = useState('');
   const [mhTriggered, setMhTriggered] = useState(false);
   const [currentShopCatalog, setCurrentShopCatalog] = useState([]);
+  const [selectedJar, setSelectedJar] = useState(null);
 
   // BlackJack State (Infinitely Scalable Double-Push Gamble)
   const [bjPlayerHand, setBjPlayerHand] = useState([]);
@@ -159,6 +160,7 @@ export default function App() {
       inventory: [
         ...jobClass.initialItems,
         { id: 'init_ore', name: '鉄鉱石', emoji: '🪨', category: 'MATERIAL', type: 'IRON_ORE', uses: 2 },
+        { id: 'init_synth_jar', name: '合成の壺', emoji: '🏺', category: 'JAR', type: 'SYNTHESIS', capacity: 4, contents: [] },
       ],
       grid: dungeon.grid,
       wallData: dungeon.wallData,
@@ -724,6 +726,93 @@ export default function App() {
 
     setNpcSpeech({ npc, text: speechText });
     setActiveModal('NPC_DIALOGUE');
+  };
+
+  // OPEN JAR ITEM SELECTION MODAL
+  const handleOpenJarInputModal = (jarItem) => {
+    setSelectedJar(jarItem);
+    setActiveModal('JAR_INPUT');
+  };
+
+  // PUT ITEM INTO JAR LOGIC (SYNTHESIS, IDENTIFY, CHANGE, STORAGE)
+  const handlePutItemIntoJar = (targetItem) => {
+    if (!gameState || !selectedJar) return;
+    const state = { ...gameState };
+
+    if (targetItem.id === selectedJar.id) {
+      addLog('⚠️ 壺の中に自分自身を入れることはできません！');
+      return;
+    }
+    if (targetItem.id === equippedWeapon?.id || targetItem.id === equippedShield?.id) {
+      addLog('⚠️ 装備中の武具は壺に入れられません！ 装備を外してから投入してください。');
+      return;
+    }
+
+    const currentCap = selectedJar.capacity || 4;
+    selectedJar.contents = selectedJar.contents || [];
+
+    if (selectedJar.contents.length >= currentCap) {
+      addLog(`⚠️ ${selectedJar.name} はすでに満杯です！ (容量: ${currentCap})`);
+      return;
+    }
+
+    // Remove target item from inventory
+    state.inventory = state.inventory.filter((i) => i.id !== targetItem.id);
+
+    if (selectedJar.type === 'SYNTHESIS') {
+      selectedJar.contents.push(targetItem);
+      addLog(`🏺 ${targetItem.name} を ${selectedJar.name} に投入した！ (現在 ${selectedJar.contents.length}/${currentCap} 個投入)`);
+      sounds.playMagic();
+
+      // If at least 2 items in Synthesis Jar, combine them!
+      if (selectedJar.contents.length >= 2) {
+        const baseItem = { ...selectedJar.contents[0] };
+        for (let i = 1; i < selectedJar.contents.length; i++) {
+          const subItem = selectedJar.contents[i];
+          baseItem.atkBonus = (baseItem.atkBonus || 0) + (subItem.atkBonus || 0);
+          baseItem.defBonus = (baseItem.defBonus || 0) + (subItem.defBonus || 0);
+
+          const combinedEnchants = new Set([...(baseItem.enchantments || []), ...(subItem.enchantments || [])]);
+          baseItem.enchantments = Array.from(combinedEnchants);
+          baseItem.name = `✨ 合成済 ${baseItem.name} (+${baseItem.atkBonus || baseItem.defBonus})`;
+        }
+
+        // Consume Jar and give synthesized result
+        state.inventory = state.inventory.filter((i) => i.id !== selectedJar.id);
+        state.inventory.push(baseItem);
+        addLog(`💥 🏺 ${selectedJar.name} が輝きと共に弾け飛び、超強化された【${baseItem.name}】が完成した！ (ATK+${baseItem.atkBonus || 0} DEF+${baseItem.defBonus || 0})`);
+        sounds.playFanfare();
+        setActiveModal('INVENTORY');
+        setGameState(state);
+        return;
+      }
+    } else if (selectedJar.type === 'CHANGE') {
+      const changedItem = {
+        id: `changed_${Date.now()}`,
+        name: '🔥 狂乱の オリハルコン製 ⚔️ 秘剣',
+        emoji: '⚔️',
+        category: 'EQUIPMENT',
+        type: 'WEAPON',
+        atkBonus: 20,
+        enchantments: ['狂乱', '会心'],
+        isIdentified: true,
+      };
+      state.inventory.push(changedItem);
+      addLog(`✨ ${targetItem.name} を変化の壺に入れたら、なんと【${changedItem.name}】に変化した！`);
+      sounds.playFanfare();
+    } else if (selectedJar.type === 'IDENTIFY') {
+      targetItem.isIdentified = true;
+      state.inventory.push(targetItem);
+      addLog(`🔮 ${targetItem.name} を識別の壺に入れたことで、完全に鑑別・鑑定された！`);
+      sounds.playMagic();
+    } else {
+      // STORAGE
+      selectedJar.contents.push(targetItem);
+      addLog(`📦 ${targetItem.name} を ${selectedJar.name} に収納・保存した！`);
+      sounds.playHeal();
+    }
+
+    setGameState(state);
   };
 
   const handleUseItem = (item) => {
@@ -1370,9 +1459,44 @@ export default function App() {
           equippedShield={equippedShield}
           onUseItem={handleUseItem}
           onEquipItem={handleEquipItem}
-          onSynthesize={handleSynthesize}
+          onOpenJarInputModal={handleOpenJarInputModal}
           onClose={() => setActiveModal(null)}
         />
+      )}
+
+      {/* JAR INPUT SELECTION MODAL */}
+      {activeModal === 'JAR_INPUT' && selectedJar && gameState && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border-4 border-amber-500 rounded-xl p-5 max-w-md w-full text-white text-center font-retro shadow-2xl">
+            <div className="text-3xl mb-1">{selectedJar.emoji}</div>
+            <h3 className="text-yellow-300 font-bold mb-1">【{selectedJar.name}】に投入するアイテムを選択</h3>
+            <p className="text-xs text-gray-300 mb-3">
+              容量: {(selectedJar.capacity || 4) - (selectedJar.contents?.length || 0)} / {selectedJar.capacity || 4}
+            </p>
+
+            <div className="flex flex-col space-y-1.5 max-h-60 overflow-y-auto pr-1 mb-4 text-xs">
+              {gameState.inventory
+                .filter((i) => i.id !== selectedJar.id)
+                .map((invItem) => (
+                  <button
+                    key={invItem.id}
+                    onClick={() => handlePutItemIntoJar(invItem)}
+                    className="py-2 px-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between items-center text-left"
+                  >
+                    <span>{invItem.emoji} {invItem.name}</span>
+                    <span className="text-amber-400 font-bold">投入 ➔</span>
+                  </button>
+                ))}
+            </div>
+
+            <button
+              onClick={() => setActiveModal('INVENTORY')}
+              className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded text-xs"
+            >
+              キャンセルして戻る
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ALL 6 FRIENDLY NPC INTERACTIVE MODAL */}
