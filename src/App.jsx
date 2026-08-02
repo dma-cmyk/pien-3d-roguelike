@@ -770,6 +770,7 @@ export default function App() {
     setGameState(state);
   };
 
+  // SELL ITEM (Keep modal open for continuous selling)
   const handleSellItemToShop = (item) => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -789,8 +790,10 @@ export default function App() {
     addLog(`💰 ${item.emoji} ${item.name} を道具屋に売却し、${price}G を手に入れた！`);
     sounds.playHeal();
     setGameState(state);
+    // Keep NPC Modal open for continuous selling!
   };
 
+  // UPGRADE AT SMITH (Keep modal open for continuous upgrading)
   const handleUpgradeEquipmentAtSmith = () => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -817,9 +820,10 @@ export default function App() {
     }
     sounds.playMine();
     setGameState(state);
-    setActiveModal(null);
+    // Keep NPC Modal open for continuous upgrading!
   };
 
+  // ROULETTE START (Support continuous restart)
   const handleStartRoulette = () => {
     if (!gameState) return;
     if (gameState.gold < 100) {
@@ -878,6 +882,7 @@ export default function App() {
     setGameState(state);
   };
 
+  // IDENTIFY AT WIZARD (Keep modal open)
   const handleIdentifyAllAtWizard = () => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -897,9 +902,10 @@ export default function App() {
     addLog(`🔮 鑑定士が手持ちの ${identifiedCount} 個の未識別アイテムを鑑定した！`);
     sounds.playMagic();
     setGameState(state);
-    setActiveModal(null);
+    // Keep NPC Modal open!
   };
 
+  // BUY SHOP ITEM (Keep modal open for continuous buying)
   const handleBuyShopItem = (itemType) => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -921,12 +927,13 @@ export default function App() {
 
     state.gold -= item.cost;
     state.inventory.push({ ...item, id: `bought_${Date.now()}` });
-    addLog(`💰 ${item.cost}G で ${item.emoji} ${item.name} を購入した！`);
+    addLog(`💰 ${item.cost}G で ${item.emoji} ${item.name} を購入した！ (残金: ${state.gold}G)`);
     sounds.playHeal();
     setGameState(state);
-    setActiveModal(null);
+    // Keep NPC Modal open for continuous buying!
   };
 
+  // FORTUNE TELL (Keep modal open)
   const handleFortuneTell = () => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -946,7 +953,7 @@ export default function App() {
     addLog('✨ 占い師の千里眼により、現在の階層の全マップと魔物の位置が開示された！');
     sounds.playMagic();
     setGameState(state);
-    setActiveModal(null);
+    // Keep NPC Modal open!
   };
 
   // BLACKJACK INITIAL START
@@ -1075,6 +1082,7 @@ export default function App() {
     }
   };
 
+  // BUY PET (Keep modal open for continuous buying)
   const handleBuyPetFromNpc = (petType) => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -1121,9 +1129,10 @@ export default function App() {
     addLog(`✨ ${tpl.cost}G を支払って ${tpl.emoji} ${tpl.name} を新しい仲間ペットに雇った！ (計${companions.length}体)`);
     sounds.playFanfare();
     setGameState(state);
-    setActiveModal(null);
+    // Keep NPC Modal open!
   };
 
+  // HEAL PET AT TAMER (Keep modal open)
   const handleHealPetAtNpc = () => {
     if (!gameState || gameState.companions.length === 0) return;
     const state = { ...gameState };
@@ -1141,7 +1150,7 @@ export default function App() {
     addLog(`✨ 50G を支払って ペット全員の傷を治療してもらった！ (全員HP全回復)`);
     sounds.playHeal();
     setGameState(state);
-    setActiveModal(null);
+    // Keep NPC Modal open!
   };
 
   const handleRenamePet = () => {
@@ -1275,7 +1284,8 @@ export default function App() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 border-4 border-white rounded-xl p-5 max-w-md w-full text-white text-center font-retro shadow-2xl">
             <div className="text-4xl mb-2">{npcSpeech.npc.emoji}</div>
-            <div className="text-yellow-400 font-bold mb-3">【{npcSpeech.npc.name}】</div>
+            <div className="text-yellow-400 font-bold mb-1">【{npcSpeech.npc.name}】</div>
+            <div className="text-xs text-yellow-300 font-bold mb-3">所持金: {gameState.gold}G</div>
             <p className="text-sm leading-relaxed mb-4 bg-black/60 p-3 rounded border border-gray-700">
               「{npcSpeech.text}」
             </p>
@@ -1285,7 +1295,7 @@ export default function App() {
               {npcSpeech.npc.emoji === '👷' && (
                 <button
                   onClick={handleUpgradeEquipmentAtSmith}
-                  className="w-full py-2 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1"
+                  className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                 >
                   <span>🔨 100G で装備を鍛錬・強化する (攻撃/防御UP & 採掘強化)</span>
                 </button>
@@ -1295,33 +1305,33 @@ export default function App() {
               {npcSpeech.npc.emoji === '🧙' && (
                 <button
                   onClick={handleIdentifyAllAtWizard}
-                  className="w-full py-2 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded flex items-center justify-center space-x-1"
+                  className="w-full py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                 >
                   <span>🔮 50G で手持ちの未識別アイテムを全鑑定する</span>
                 </button>
               )}
 
-              {/* 👨 道具屋 (Shopkeeper) */}
+              {/* 👨 道具屋 (Shopkeeper - Continuous Shopping & Selling) */}
               {npcSpeech.npc.emoji === '👨' && (
                 <div className="border-t border-gray-700 pt-2 flex flex-col space-y-2 max-h-60 overflow-y-auto pr-1">
-                  <div className="text-yellow-300 font-bold text-[11px]">💰 道具を購入する:</div>
+                  <div className="text-yellow-300 font-bold text-[11px]">💰 道具を購入する (連続購入可能):</div>
                   <div className="grid grid-cols-2 gap-1.5">
-                    <button onClick={() => handleBuyShopItem('HERB')} className="py-1.5 bg-gray-800 hover:bg-gray-700 rounded flex justify-between px-2 text-[10px]">
-                      <span>🌿 薬草</span><span className="text-yellow-300">40G</span>
+                    <button onClick={() => handleBuyShopItem('HERB')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
+                      <span>🌿 薬草</span><span className="text-yellow-300 font-bold">40G</span>
                     </button>
-                    <button onClick={() => handleBuyShopItem('BREAD')} className="py-1.5 bg-gray-800 hover:bg-gray-700 rounded flex justify-between px-2 text-[10px]">
-                      <span>🍞 高級パン</span><span className="text-yellow-300">35G</span>
+                    <button onClick={() => handleBuyShopItem('BREAD')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
+                      <span>🍞 高級パン</span><span className="text-yellow-300 font-bold">35G</span>
                     </button>
-                    <button onClick={() => handleBuyShopItem('SWORD')} className="py-1.5 bg-gray-800 hover:bg-gray-700 rounded flex justify-between px-2 text-[10px]">
-                      <span>⚔️ 鋼鉄の剣</span><span className="text-yellow-300">120G</span>
+                    <button onClick={() => handleBuyShopItem('SWORD')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
+                      <span>⚔️ 鋼鉄の剣</span><span className="text-yellow-300 font-bold">120G</span>
                     </button>
-                    <button onClick={() => handleBuyShopItem('JAR')} className="py-1.5 bg-gray-800 hover:bg-gray-700 rounded flex justify-between px-2 text-[10px]">
-                      <span>🏺 合成の壺</span><span className="text-yellow-300">150G</span>
+                    <button onClick={() => handleBuyShopItem('JAR')} className="py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded flex justify-between px-2 text-[10px]">
+                      <span>🏺 合成の壺</span><span className="text-yellow-300 font-bold">150G</span>
                     </button>
                   </div>
 
                   <div className="text-emerald-300 font-bold text-[11px] pt-2 border-t border-gray-800">
-                    💎 手持ちアイテムを道具屋に売る (換金):
+                    💎 手持ちアイテムを道具屋に売る (連続換金可能):
                   </div>
                   {gameState.inventory.length === 0 ? (
                     <div className="text-gray-500 text-[10px]">売却できるアイテムがありません</div>
@@ -1352,7 +1362,7 @@ export default function App() {
               {npcSpeech.npc.emoji === '🧕' && (
                 <button
                   onClick={handleFortuneTell}
-                  className="w-full py-2 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded flex items-center justify-center space-x-1"
+                  className="w-full py-2.5 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                 >
                   <span>✨ 80G で全マップと魔物の位置を占う (透視)</span>
                 </button>
@@ -1372,7 +1382,7 @@ export default function App() {
                     onClick={handleStartRoulette}
                     className="w-full py-2 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded flex items-center justify-center space-x-1 shadow"
                   >
-                    <span>⚡ 2. 高速目押しルーレット勝負 (反射神経・動神経)</span>
+                    <span>⚡ 2. 高速目押しルーレット勝負 (反射神経・連続プレイ可能)</span>
                   </button>
                 </div>
               )}
@@ -1408,23 +1418,24 @@ export default function App() {
                 onClick={() => setActiveModal(null)}
                 className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded text-xs mt-2"
               >
-                閉じる
+                買い物を終えて会話を閉じる
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 🤵 GAMBLER SKILL GAME: TIMING EMOJI ROULETTE MODAL */}
+      {/* 🤵 GAMBLER SKILL GAME: CONTINUOUS TIMING EMOJI ROULETTE MODAL */}
       {activeModal === 'ROULETTE' && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
           <div className="bg-yellow-950 border-4 border-yellow-400 rounded-xl p-5 max-w-md w-full text-white font-retro shadow-2xl flex flex-col items-center">
-            <div className="text-3xl mb-1">🎰 🤵 目押しルーレット勝負</div>
+            <div className="text-2xl mb-1">🎰 🤵 目押しルーレット勝負</div>
+            <div className="text-xs text-yellow-300 font-bold mb-2">所持金: {gameState.gold}G</div>
             <p className="text-xs text-yellow-200 mb-4 text-center">
               高速回転する絵文字を目で追い、👑 や 💎 のタイミングでストップボタンを押せ！
             </p>
 
-            <div className="w-full bg-black h-20 rounded-lg border-4 border-yellow-400 flex items-center justify-center space-x-3 mb-6 overflow-hidden shadow-inner">
+            <div className="w-full bg-black h-20 rounded-lg border-4 border-yellow-400 flex items-center justify-center space-x-3 mb-4 overflow-hidden shadow-inner">
               <div className="text-4xl animate-bounce">
                 {ROULETTE_ITEMS[rouletteIndex]}
               </div>
@@ -1436,7 +1447,7 @@ export default function App() {
               </div>
             )}
 
-            <div className="flex space-x-3 w-full">
+            <div className="flex flex-col space-y-2 w-full">
               {!rouletteResultMsg ? (
                 <button
                   onClick={handleStopRoulette}
@@ -1445,12 +1456,20 @@ export default function App() {
                   🛑 STOP!! (目押し)
                 </button>
               ) : (
-                <button
-                  onClick={() => setActiveModal(null)}
-                  className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded text-xs"
-                >
-                  カジノを去る
-                </button>
+                <div className="flex flex-col space-y-2 w-full">
+                  <button
+                    onClick={handleStartRoulette}
+                    className="w-full py-2.5 bg-red-600 hover:bg-red-500 text-yellow-300 font-bold rounded-lg text-xs shadow-xl border border-yellow-400 animate-pulse"
+                  >
+                    🔁 100G でもう一度目押しに挑戦 (連続勝負)
+                  </button>
+                  <button
+                    onClick={() => setActiveModal(null)}
+                    className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded text-xs"
+                  >
+                    🚪 カジノを去る
+                  </button>
+                </div>
               )}
             </div>
           </div>
