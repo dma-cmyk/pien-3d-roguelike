@@ -322,13 +322,15 @@ export default function App() {
       sounds.playMineBreak();
 
       if (Math.random() < wall.dropChance) {
+        const isFood = wall.dropType === 'FOOD';
         items.push({
           id: `drop_${Date.now()}`,
           x,
           y,
-          name: wall.dropType === 'FOOD' ? 'パン' : '鉱石の結晶',
-          emoji: wall.dropType === 'FOOD' ? '🍞' : '💎',
-          category: wall.dropType === 'FOOD' ? 'CONSUMABLE' : 'MONEY',
+          name: isFood ? 'パン' : '鉱石の結晶',
+          emoji: isFood ? '🍞' : '💎',
+          category: isFood ? 'CONSUMABLE' : 'MONEY',
+          type: isFood ? 'FOOD' : 'MONEY',
           amount: 100,
           foodRestore: 40,
         });
@@ -342,7 +344,7 @@ export default function App() {
 
     if (companion.hp <= companion.maxHp * 0.5) {
       const healItemIdx = companion.inventory.findIndex(
-        (i) => i.type === 'HERB' || i.type === 'POTION' || i.type === 'FOOD'
+        (i) => i.type === 'HERB' || i.type === 'POTION' || i.type === 'FOOD' || i.foodRestore > 0
       );
       if (healItemIdx >= 0) {
         const item = companion.inventory[healItemIdx];
@@ -571,9 +573,10 @@ export default function App() {
       } else {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
       }
-    } else if (item.type === 'FOOD') {
-      player.food = Math.min(100, player.food + (item.foodRestore || 40));
-      addLog(`🍞 パンを食べて満腹度が回復した！`);
+    } else if (item.type === 'FOOD' || item.foodRestore > 0 || item.name.includes('パン')) {
+      const restoreAmount = item.foodRestore || 40;
+      player.food = Math.min(100, player.food + restoreAmount);
+      addLog(`🍞 ${item.name} を食べて満腹度が ${restoreAmount} 回復した！ (満腹度: ${player.food}/100)`);
       sounds.playHeal();
     } else if (item.type === 'HERB' || item.type === 'POTION') {
       const healAmount = item.heal || 30;
@@ -619,7 +622,6 @@ export default function App() {
     setGameState(state);
   };
 
-  // 👷 SMITH: Standard Smith Upgrade (Original)
   const handleUpgradeEquipmentAtSmith = () => {
     if (!gameState) return;
     const state = { ...gameState };
@@ -649,9 +651,6 @@ export default function App() {
     setActiveModal(null);
   };
 
-  // -------------------------------------------------------------
-  // 🤵 GAMBLER SKILL GAME: TIMING EMOJI ROULETTE
-  // -------------------------------------------------------------
   const handleStartRoulette = () => {
     if (!gameState) return;
     if (gameState.gold < 100) {
@@ -668,7 +667,6 @@ export default function App() {
     sounds.playSelect();
   };
 
-  // Timing Roulette Loop
   useEffect(() => {
     let intervalId;
     if (activeModal === 'ROULETTE' && !rouletteResultMsg) {
@@ -679,7 +677,6 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [activeModal, rouletteResultMsg]);
 
-  // Stop Roulette Button
   const handleStopRoulette = () => {
     if (rouletteResultMsg) return;
 
@@ -704,7 +701,6 @@ export default function App() {
       sounds.playSelect();
       addLog('🎰 ギャンブラーの目押し勝負【引き分け】');
     } else {
-      // 💣 BOMB / FAIL
       setRouletteResultMsg('💥 BOMB!! 💣 で目押し失敗！ 100G没収');
       sounds.playHit();
       addLog('🎰 ギャンブラーの目押し勝負【敗北】 💣 で没収…');
@@ -1047,7 +1043,7 @@ export default function App() {
             </p>
 
             <div className="flex flex-col space-y-2 text-xs">
-              {/* 👷 鍛冶屋 (Smith): Restore to Original Smith Upgrade */}
+              {/* 👷 鍛冶屋 (Smith) */}
               {npcSpeech.npc.emoji === '👷' && (
                 <button
                   onClick={handleUpgradeEquipmentAtSmith}
@@ -1124,7 +1120,7 @@ export default function App() {
                 </button>
               )}
 
-              {/* 🤵 ギャンブラー (Gambler): 2 CASINO MINIGAMES */}
+              {/* 🤵 ギャンブラー (Gambler) */}
               {npcSpeech.npc.emoji === '🤵' && (
                 <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
                   <div className="text-yellow-300 font-bold text-[11px]">🎰 カジノミニゲームを選択 (賭け金: 100G):</div>
@@ -1188,21 +1184,18 @@ export default function App() {
               高速回転する絵文字を目で追い、👑 や 💎 のタイミングでストップボタンを押せ！
             </p>
 
-            {/* Carousel Display */}
             <div className="w-full bg-black h-20 rounded-lg border-4 border-yellow-400 flex items-center justify-center space-x-3 mb-6 overflow-hidden shadow-inner">
               <div className="text-4xl animate-bounce">
                 {ROULETTE_ITEMS[rouletteIndex]}
               </div>
             </div>
 
-            {/* Result Display */}
             {rouletteResultMsg && (
               <div className="mb-4 text-xs font-bold text-center bg-black/80 p-2.5 rounded border border-yellow-400 text-yellow-300">
                 {rouletteResultMsg}
               </div>
             )}
 
-            {/* Controls */}
             <div className="flex space-x-3 w-full">
               {!rouletteResultMsg ? (
                 <button
