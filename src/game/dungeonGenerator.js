@@ -1,9 +1,41 @@
-import { MONSTER_TEMPLATES, FRIENDLY_NPCS, ENCHANTMENTS, WALL_TYPES } from './typesAndConstants';
+import { MONSTER_TEMPLATES, FRIENDLY_NPCS, WALL_TYPES } from './typesAndConstants';
 
 // 1 Floor = +1 Grid Dimension Expansion (1F: 16x16, 2F: 17x17, 10F: 25x25, 20F: 35x35, 50F: 65x65...)
 export function getMapSizeForFloor(floorNumber) {
   return 16 + (floorNumber - 1);
 }
+
+// ----------------------------------------------------
+// HACK & SLASH: EGO + MATERIAL + BASE ITEM DYNAMIC GENERATION
+// ----------------------------------------------------
+export const MATERIALS = [
+  { prefix: '木製', emoji: '🪵', atkMult: 1.0, defMult: 1.0, costMult: 1.0 },
+  { prefix: '石製', emoji: '🪨', atkMult: 1.3, defMult: 1.3, costMult: 1.3 },
+  { prefix: '鉄製', emoji: '⚙️', atkMult: 1.7, defMult: 1.7, costMult: 1.6 },
+  { prefix: '鋼鉄製', emoji: '⚔️', atkMult: 2.3, defMult: 2.2, costMult: 2.2 },
+  { prefix: 'ダイヤ製', emoji: '💎', atkMult: 3.2, defMult: 3.0, costMult: 3.2 },
+  { prefix: 'オリハルコン製', emoji: '🌟', atkMult: 4.2, defMult: 4.0, costMult: 4.5 },
+];
+
+export const EGOS = [
+  { prefix: '狂乱の', atkBonus: 8, defBonus: 0, enchant: '狂乱', costAdd: 100 },
+  { prefix: '灼熱の', atkBonus: 5, defBonus: 0, enchant: '火属性', costAdd: 80 },
+  { prefix: '雷撃の', atkBonus: 6, defBonus: 0, enchant: '会心', costAdd: 90 },
+  { prefix: '暗夜の', atkBonus: 2, defBonus: 2, enchant: '暗視', costAdd: 120 },
+  { prefix: '堅牢な', atkBonus: 0, defBonus: 6, enchant: '防護', costAdd: 70 },
+  { prefix: '吸血の', atkBonus: 4, defBonus: 1, enchant: '吸血', costAdd: 110 },
+  { prefix: '採掘の', atkBonus: 3, defBonus: 0, enchant: '採掘強化', costAdd: 80 },
+  { prefix: '伝説の', atkBonus: 12, defBonus: 6, enchant: '全知全能', costAdd: 250 },
+];
+
+export const BASE_ITEMS = [
+  { name: '剣', emoji: '⚔️', category: 'EQUIPMENT', type: 'WEAPON', baseAtk: 4, baseDef: 0 },
+  { name: '短剣', emoji: '🗡️', category: 'EQUIPMENT', type: 'WEAPON', baseAtk: 3, baseDef: 0 },
+  { name: '大剣', emoji: '🪓', category: 'EQUIPMENT', type: 'WEAPON', baseAtk: 7, baseDef: 0 },
+  { name: '盾', emoji: '🛡️', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 3 },
+  { name: '大盾', emoji: '🔰', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 6 },
+  { name: '鎧', emoji: '🦺', category: 'EQUIPMENT', type: 'SHIELD', baseAtk: 0, baseDef: 5 },
+];
 
 export function generateDungeonFloor(floorNumber) {
   const mapSize = getMapSizeForFloor(floorNumber);
@@ -260,8 +292,8 @@ export function generateRandomItem(x, y, floorNumber) {
       heal: 30,
       isIdentified: isHerb,
     };
-  } else if (rand < 0.55) {
-    // MATERIAL DROPS (🪨 鉄鉱石, 💎 魔法の結晶, 🪵 竜のうろこ)
+  } else if (rand < 0.52) {
+    // MATERIAL DROPS
     const matRand = Math.random();
     let matName = '鉄鉱石';
     let matEmoji = '🪨';
@@ -286,7 +318,7 @@ export function generateRandomItem(x, y, floorNumber) {
       uses: 1,
       isIdentified: true,
     };
-  } else if (rand < 0.7) {
+  } else if (rand < 0.65) {
     const isMeat = Math.random() < 0.5;
     return {
       id, x, y,
@@ -298,21 +330,35 @@ export function generateRandomItem(x, y, floorNumber) {
       foodRestore: isMeat ? 60 : 0,
       isIdentified: true,
     };
-  } else if (rand < 0.82) {
-    const isWep = Math.random() < 0.5;
-    const enchant = Math.random() < 0.4 ? ENCHANTMENTS[Math.floor(Math.random() * ENCHANTMENTS.length)] : null;
+  } else if (rand < 0.88) {
+    // HACK & SLASH DYNAMIC EQUIPMENT: EGO + MATERIAL + BASE ITEM
+    const base = BASE_ITEMS[Math.floor(Math.random() * BASE_ITEMS.length)];
+
+    // Higher floor = higher chance for rare materials
+    const maxMatIdx = Math.min(MATERIALS.length - 1, Math.floor(floorNumber * 0.8) + 1);
+    const mat = MATERIALS[Math.floor(Math.random() * (maxMatIdx + 1))];
+
+    // Ego Roll (60% chance to have Ego)
+    const hasEgo = Math.random() < 0.6;
+    const ego = hasEgo ? EGOS[Math.floor(Math.random() * EGOS.length)] : null;
+
+    const fullName = `${ego ? ego.prefix + ' ' : ''}${mat.prefix} ${base.name}`;
+    const calculatedAtk = Math.floor(base.baseAtk * mat.atkMult) + (ego?.atkBonus || 0);
+    const calculatedDef = Math.floor(base.baseDef * mat.defMult) + (ego?.defBonus || 0);
+    const enchantments = ego ? [ego.enchant] : [];
+
     return {
       id, x, y,
-      name: isWep ? '鋼鉄の剣' : '木の盾',
-      emoji: isWep ? '⚔️' : '🛡️',
+      name: fullName,
+      emoji: base.emoji,
       category: 'EQUIPMENT',
-      type: isWep ? 'WEAPON' : 'SHIELD',
-      atkBonus: isWep ? 5 : 0,
-      defBonus: isWep ? 0 : 3,
-      enchantments: enchant ? [enchant] : [],
+      type: base.type,
+      atkBonus: calculatedAtk,
+      defBonus: calculatedDef,
+      enchantments,
       isIdentified: true,
     };
-  } else if (rand < 0.92) {
+  } else if (rand < 0.95) {
     return {
       id, x, y,
       name: 'イオの書',

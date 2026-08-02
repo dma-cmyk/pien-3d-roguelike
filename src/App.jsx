@@ -14,7 +14,7 @@ import { TitleModal } from './components/TitleModal';
 const SAVE_KEY = 'pien_roguelike_save_v1';
 const MAX_COMPANIONS = 3;
 
-// Master Catalog for Dynamic Shop Inventory
+// Master Catalog for Dynamic Shop Inventory (with Ego + Material Named Items)
 const SHOP_MASTER_CATALOG = [
   { id: 'HERB', name: '薬草', emoji: '🌿', cost: 40, category: 'CONSUMABLE', type: 'HERB', heal: 35 },
   { id: 'BREAD', name: '高級パン', emoji: '🍞', cost: 35, category: 'CONSUMABLE', type: 'FOOD', foodRestore: 60 },
@@ -22,10 +22,10 @@ const SHOP_MASTER_CATALOG = [
   { id: 'POTION', name: '特効薬', emoji: '🧪', cost: 90, category: 'CONSUMABLE', type: 'POTION', heal: 70 },
   { id: 'IRON_ORE', name: '鉄鉱石', emoji: '🪨', cost: 50, category: 'MATERIAL', type: 'IRON_ORE', uses: 1 },
   { id: 'MANA_CRYSTAL', name: '魔法の結晶', emoji: '💎', cost: 80, category: 'MATERIAL', type: 'MANA_CRYSTAL', uses: 1 },
-  { id: 'SWORD', name: '鋼鉄の剣', emoji: '⚔️', cost: 120, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 6, enchantments: ['会心'] },
-  { id: 'FLAME_SWORD', name: '炎の剣', emoji: '🗡️', cost: 220, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 10, enchantments: ['火属性'] },
-  { id: 'SHIELD', name: '木の盾', emoji: '🛡️', cost: 100, category: 'EQUIPMENT', type: 'SHIELD', defBonus: 4 },
-  { id: 'MIRROR_SHIELD', name: '鏡の盾', emoji: '🛡️', cost: 200, category: 'EQUIPMENT', type: 'SHIELD', defBonus: 7, enchantments: ['暗視'] },
+  { id: 'EGO_SWORD_1', name: '🔥 灼熱の 鋼鉄製 ⚔️ 剣', emoji: '⚔️', cost: 260, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 11, defBonus: 0, enchantments: ['火属性'] },
+  { id: 'EGO_SHIELD_1', name: '🌙 暗夜の ダイヤ製 🛡️ 盾', emoji: '🛡️', cost: 320, category: 'EQUIPMENT', type: 'SHIELD', atkBonus: 0, defBonus: 11, enchantments: ['暗視'] },
+  { id: 'EGO_AXE_1', name: '⚡ 雷撃の オリハルコン製 🪓 大剣', emoji: '🪓', cost: 480, category: 'EQUIPMENT', type: 'WEAPON', atkBonus: 24, defBonus: 0, enchantments: ['会心'] },
+  { id: 'EGO_ARMOR_1', name: '👑 伝説の 鉄製 🦺 鎧', emoji: '🦺', cost: 350, category: 'EQUIPMENT', type: 'SHIELD', atkBonus: 8, defBonus: 12, enchantments: ['全知全能'] },
   { id: 'IO_SCROLL', name: 'イオの書', emoji: '📜', cost: 160, category: 'SPELLBOOK', type: 'SPELLBOOK', uses: 4 },
   { id: 'TAME_BOOK', name: 'テイムの書', emoji: '📖', cost: 150, category: 'SPELLBOOK', type: 'TAME', uses: 3 },
   { id: 'SYNTHESIS_JAR', name: '合成の壺', emoji: '🏺', cost: 150, category: 'JAR', type: 'SYNTHESIS', capacity: 4, contents: [] },
@@ -868,16 +868,16 @@ export default function App() {
 
       const craftedWeapon = {
         id: `crafted_${Date.now()}`,
-        name: 'ドラゴンスレイヤー',
+        name: '🔥 狂乱の 鋼鉄製 ⚔️ ドラゴンスレイヤー',
         emoji: '⚔️',
         category: 'EQUIPMENT',
         type: 'WEAPON',
-        atkBonus: 14,
-        enchantments: ['竜特効', '会心'],
+        atkBonus: 18,
+        enchantments: ['狂乱', '竜特効', '会心'],
         isIdentified: true,
       };
       state.inventory.push(craftedWeapon);
-      addLog('🔥 🔨 鍛冶屋が 🪨 鉄鉱石 から【⚔️ ドラゴンスレイヤー (ATK+14)】を錬成した！');
+      addLog('🔥 🔨 鍛冶屋が 🪨 鉄鉱石 から【🔥 狂乱の 鋼鉄製 ⚔️ ドラゴンスレイヤー (ATK+18)】を錬成した！');
       sounds.playMineBreak();
     } else if (recipeType === 'DRAGON_SHIELD') {
       const crystal = inventory.find((i) => i.type === 'MANA_CRYSTAL' || i.type === 'DRAGON_SCALE');
@@ -891,16 +891,16 @@ export default function App() {
 
       const craftedShield = {
         id: `crafted_${Date.now()}`,
-        name: '竜鱗の鏡盾',
+        name: '🌙 暗夜の ダイヤ製 🛡️ 竜鱗の鏡盾',
         emoji: '🛡️',
         category: 'EQUIPMENT',
         type: 'SHIELD',
-        defBonus: 9,
-        enchantments: ['暗視', '魔法反射'],
+        defBonus: 12,
+        enchantments: ['暗視', '魔法反射', '防護'],
         isIdentified: true,
       };
       state.inventory.push(craftedShield);
-      addLog('🔥 🔨 鍛冶屋が 💎 魔法の結晶 から【🛡️ 竜鱗の鏡盾 (DEF+9)】を精錬した！');
+      addLog('🔥 🔨 鍛冶屋が 💎 魔法の結晶 から【🌙 暗夜の ダイヤ製 🛡️ 竜鱗の鏡盾 (DEF+12)】を精錬した！');
       sounds.playMineBreak();
     }
 
@@ -1375,14 +1375,14 @@ export default function App() {
                     onClick={() => handleCraftAtSmith('DRAGON_SLAYER')}
                     className="w-full py-1.5 bg-red-950 hover:bg-red-900 border border-red-600 rounded flex justify-between px-3 text-[11px]"
                   >
-                    <span>⚔️ ドラゴンスレイヤー (ATK+14 / 竜特効)</span>
+                    <span>⚔️ 🔥 狂乱の 鋼鉄製 ⚔️ ドラゴンスレイヤー (ATK+18)</span>
                     <span className="text-yellow-300">🪨鉄鉱石 + 150G</span>
                   </button>
                   <button
                     onClick={() => handleCraftAtSmith('DRAGON_SHIELD')}
                     className="w-full py-1.5 bg-indigo-950 hover:bg-indigo-900 border border-indigo-600 rounded flex justify-between px-3 text-[11px]"
                   >
-                    <span>🛡️ 竜鱗の鏡盾 (DEF+9 / 暗視・反射)</span>
+                    <span>🛡️ 🌙 暗夜の ダイヤ製 🛡️ 竜鱗の鏡盾 (DEF+12)</span>
                     <span className="text-yellow-300">💎魔法の結晶 + 150G</span>
                   </button>
                 </div>
