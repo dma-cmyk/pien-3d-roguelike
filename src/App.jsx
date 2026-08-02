@@ -57,6 +57,7 @@ export default function App() {
   const [bossInfo, setBossInfo] = useState(null);
   const [selectedPetIdx, setSelectedPetIdx] = useState(0);
   const [newPetName, setNewPetName] = useState('');
+  const [mhTriggered, setMhTriggered] = useState(false);
 
   // BlackJack State
   const [bjPlayerHand, setBjPlayerHand] = useState([]);
@@ -137,6 +138,7 @@ export default function App() {
       wallData: dungeon.wallData,
       visitedGrid: dungeon.visitedGrid,
       visibleGrid: dungeon.visibleGrid,
+      monsterHouseRoom: dungeon.monsterHouseRoom,
       items: dungeon.items,
       npcs: dungeon.npcs,
       enemies: dungeon.enemies,
@@ -144,6 +146,7 @@ export default function App() {
     };
 
     updateFOV(newGameState);
+    setMhTriggered(false);
 
     setGameState(newGameState);
     setActiveModal(null);
@@ -296,7 +299,7 @@ export default function App() {
   };
 
   const processTurnAfterAction = (state) => {
-    let { player } = state;
+    let { player, monsterHouseRoom } = state;
     player.food = Math.max(0, player.food - 1);
     if (player.food === 0) {
       player.hp -= 2;
@@ -305,6 +308,16 @@ export default function App() {
       if (player.hp <= 0) {
         handleGameOver('餓死してしまった…');
         return;
+      }
+    }
+
+    // MONSTER HOUSE ENTRY TRIGGER
+    if (monsterHouseRoom && !mhTriggered) {
+      const { x, y, w, h } = monsterHouseRoom;
+      if (player.x >= x && player.x < x + w && player.y >= y && player.y < y + h) {
+        setMhTriggered(true);
+        addLog('🚨 【警告】 モンスターハウスに踏み込んだ！！ 大量の魔物と宝箱が待ち構えている！');
+        sounds.playHit();
       }
     }
 
@@ -531,12 +544,14 @@ export default function App() {
     state.wallData = dungeon.wallData;
     state.visitedGrid = dungeon.visitedGrid;
     state.visibleGrid = dungeon.visibleGrid;
+    state.monsterHouseRoom = dungeon.monsterHouseRoom;
     state.items = dungeon.items;
     state.npcs = dungeon.npcs;
     state.enemies = dungeon.enemies;
     state.stairsPos = dungeon.stairsPos;
     state.player.x = dungeon.playerSpawn.x;
     state.player.y = dungeon.playerSpawn.y;
+    setMhTriggered(false);
 
     state.companions.forEach((c, idx) => {
       c.x = dungeon.playerSpawn.x - (idx + 1);
@@ -618,10 +633,9 @@ export default function App() {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
       }
     } else if (item.type === 'RAGE_POTION' || item.name.includes('狂乱')) {
-      // BERSERKER RAGE POTION EFFECT
       const atkBoost = 15;
       player.atk += atkBoost;
-      player.hp = player.maxHp; // Full HP heal
+      player.hp = player.maxHp;
       companions.forEach((c) => {
         c.atk += 5;
         c.hp = c.maxHp;
