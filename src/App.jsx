@@ -347,6 +347,38 @@ export default function App() {
     setGameState({ ...state });
   };
 
+  // HELPER: DISTRIBUTE EXP & CHECK LEVEL UPS FOR PLAYER AND ALL PETS
+  const distributeExpAndCheckLevelUps = (state, expGained, killerName) => {
+    const { player, companions } = state;
+
+    // Player Exp & Level Up
+    player.exp += expGained;
+    if (player.exp >= player.level * 30) {
+      player.level += 1;
+      player.maxHp += 10;
+      player.hp = player.maxHp;
+      player.atk += 2;
+      player.def += 1;
+      addLog(`✨ 🌟 ${player.name} は Lv.${player.level} にレベルアップした！ (HP全回復 & ステータスUP)`);
+      sounds.playLevelUp();
+    }
+
+    // Companions Exp & Level Up
+    companions.forEach((c) => {
+      const petExpGained = killerName === c.name ? expGained : Math.floor(expGained * 0.6);
+      c.exp += petExpGained;
+      if (c.exp >= c.level * 25) {
+        c.level += 1;
+        c.maxHp += 8;
+        c.hp = c.maxHp;
+        c.atk += 3;
+        c.def += 2;
+        addLog(`✨ 🐾 ${c.emoji} ${c.name} は Lv.${c.level} にレベルアップした！ (HP全回復 & ATK+3 DEF+2)`);
+        sounds.playLevelUp();
+      }
+    });
+  };
+
   // FRIENDLY NPCS SELF-DEFENSE COMBAT AI
   const processFriendlyNpcCombatAI = (state) => {
     const { npcs, enemies } = state;
@@ -373,7 +405,7 @@ export default function App() {
   };
 
   const executePlayerAttack = (state, enemy) => {
-    const { player, companions } = state;
+    const { player } = state;
     const dmg = Math.max(1, player.atk - enemy.def + Math.floor(Math.random() * 3));
     enemy.hp -= dmg;
     addLog(`⚔️ ${player.name} は ${enemy.emoji} ${enemy.name} に ${dmg} ダメージを与えた！`);
@@ -381,7 +413,6 @@ export default function App() {
 
     if (enemy.hp <= 0) {
       addLog(`💀 ${enemy.emoji} ${enemy.name} を倒した！ (Exp +${enemy.exp})`);
-      player.exp += enemy.exp;
       state.enemies = state.enemies.filter((e) => e.id !== enemy.id);
 
       if (enemy.isBoss && state.floor >= 10) {
@@ -390,18 +421,7 @@ export default function App() {
         return;
       }
 
-      companions.forEach((c) => {
-        c.exp += Math.floor(enemy.exp * 0.5);
-        if (c.exp >= c.level * 25) {
-          c.level += 1;
-          c.maxHp += 8;
-          c.hp = c.maxHp;
-          c.atk += 3;
-          c.def += 2;
-          addLog(`✨ ${c.emoji} ${c.name} は Lv.${c.level} にレベルアップした！`);
-          sounds.playLevelUp();
-        }
-      });
+      distributeExpAndCheckLevelUps(state, enemy.exp, player.name);
     }
   };
 
@@ -515,7 +535,8 @@ export default function App() {
 
           if (nearestEnemy.hp <= 0) {
             state.enemies = state.enemies.filter((e) => e.id !== nearestEnemy.id);
-            addLog(`💥 ${companion.name} は ${nearestEnemy.name} を倒した！`);
+            addLog(`💥 🐾 ${companion.name} は ${nearestEnemy.name} を見事に倒した！ (パーティー全員 Exp +${nearestEnemy.exp})`);
+            distributeExpAndCheckLevelUps(state, nearestEnemy.exp, companion.name);
           }
           return;
         }
@@ -701,7 +722,7 @@ export default function App() {
         sounds.playFanfare();
       } else {
         addLog('⚠️ 正面にテイムできる魔物がいません！');
-        return; // Don't consume if failed
+        return;
       }
     } else if (item.type === 'RAGE_POTION' || item.name.includes('狂乱')) {
       const atkBoost = 15;
