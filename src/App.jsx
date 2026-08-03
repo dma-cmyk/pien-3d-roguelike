@@ -422,12 +422,17 @@ export default function App() {
     });
   };
 
-  // FRIENDLY NPCS SELF-DEFENSE COMBAT AI
+  // FRIENDLY NPCS SELF-DEFENSE COMBAT AI & NATURAL RECOVERY
   const processFriendlyNpcCombatAI = (state) => {
     const { npcs, enemies } = state;
 
     npcs.forEach((npc) => {
       if (npc.hp <= 0) return;
+
+      // Natural HP Regen for friendly NPCs
+      if (npc.hp < npc.maxHp) {
+        npc.hp = Math.min(npc.maxHp, npc.hp + 2);
+      }
 
       const adjacentEnemy = enemies.find(
         (e) => Math.abs(e.x - npc.x) <= 1 && Math.abs(e.y - npc.y) <= 1

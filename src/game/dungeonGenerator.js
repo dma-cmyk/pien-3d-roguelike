@@ -249,11 +249,17 @@ export function generateDungeonFloor(floorNumber) {
   }
 
   const npcs = [];
-  if (Math.random() < 0.85) {
-    const npcTemplate = FRIENDLY_NPCS[Math.floor(Math.random() * FRIENDLY_NPCS.length)];
+  // 1 to 3 Friendly NPCs per floor for lively dungeon exploration!
+  const npcSpawnCount = Math.min(3, 1 + Math.floor(Math.random() * 2));
+  const availableNpcTemplates = [...FRIENDLY_NPCS].sort(() => 0.5 - Math.random());
+
+  for (let i = 0; i < npcSpawnCount; i++) {
+    const npcTemplate = availableNpcTemplates[i];
+    if (!npcTemplate) break;
+
     const pos = getEmptyFloor();
     npcs.push({
-      id: `npc_${Date.now()}_${Math.random()}`,
+      id: `npc_${Date.now()}_${i}_${Math.random()}`,
       name: npcTemplate.name,
       emoji: npcTemplate.emoji,
       type: npcTemplate.type,
