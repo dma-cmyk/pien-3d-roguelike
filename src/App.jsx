@@ -22,11 +22,11 @@ export const FRIENDLY_NPCS = [
   { type: 'IDENTIFIER', name: '鑑定士マロン', emoji: '🧙‍♂️', role: '未識別アイテムの一括全鑑定' },
   { type: 'TELLER', name: '占い師シルフィ', emoji: '🧕', role: 'マップ透視 & Gemini AI 神器降臨' },
   { type: 'GAMBLER', name: 'ギャンブラーのジャック', emoji: '🤵', role: '倍プッシュBJ & 高速目押しカジノ' },
-  { type: 'TAMER', name: '魔物使いのガゼル', emoji: '🧔', role: 'ペット売買・治療 & 気絶NPC完全復活' },
+  { type: 'TAMER', name: '魔物使いのガゼル', emoji: '🤠', role: 'ペット売買・治療 & 気絶NPC完全復活' },
   { type: 'ALCHEMIST', name: '錬金術師ゼノ', emoji: '👨‍🔬', role: '武具へ最高級エゴ属性（全知全能/吸血）確定注入' },
   { type: 'SCHOLAR', name: '魔法学者ルーン', emoji: '🧙‍♀️', role: '魔法書の使用回数充填 & 古代呪文伝授' },
   { type: 'DANCER', name: '踊り子リリィ', emoji: '💃', role: '熱狂ダンスで全員ATK・DEF・移動バフ' },
-  { type: 'BODYGUARD', name: '用心棒タロ兵衛', emoji: '🧔‍♂️', role: '頼もしい人間護衛としてパーティー同行契約' },
+  { type: 'BODYGUARD', name: '用心棒タロ兵衛', emoji: '🥷', role: '頼もしい忍者用心棒としてパーティー同行契約' },
 ];
 
 // Master Catalog for Dynamic Shop Inventory (with Ego + Material + Artifact Named Items)
@@ -1588,7 +1588,7 @@ export default function App() {
     const bodyguardPet = {
       id: `bodyguard_${Date.now()}`,
       name: '用心棒タロ兵衛',
-      emoji: '🧔‍♂️',
+      emoji: '🥷',
       x: player.x - 1,
       y: player.y,
       hp: 120 + state.floor * 15,
@@ -1603,7 +1603,7 @@ export default function App() {
     };
 
     companions.push(bodyguardPet);
-    addLog(`✨ 🧔‍♂️ 120G で頼もしい【用心棒タロ兵衛 (HP:${bodyguardPet.hp} ATK:${bodyguardPet.atk})】と護衛契約を結び、同行参戦させた！`);
+    addLog(`✨ 🥷 120G で頼もしい【用心棒タロ兵衛 (HP:${bodyguardPet.hp} ATK:${bodyguardPet.atk})】と護衛契約を結び、同行参戦させた！`);
     sounds.playFanfare();
     setGameState(state);
   };
@@ -1975,14 +1975,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* 🧔‍♂️ 用心棒タロ兵衛 (Bodyguard) */}
-              {(npcSpeech.npc.emoji === '🧔‍♂️' || npcSpeech.npc.emoji === '📦') && (
+              {/* 🥷 用心棒タロ兵衛 (Bodyguard) */}
+              {(npcSpeech.npc.emoji === '🥷' || npcSpeech.npc.emoji === '🧔‍♂️' || npcSpeech.npc.emoji === '📦') && (
                 <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
                   <button
                     onClick={handleHireBodyguardAtTaro}
                     className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                   >
-                    <span>🧔‍♂️ 120G で超タフな【用心棒タロ兵衛】を人間護衛としてパーティー同行契約する</span>
+                    <span>🥷 120G で超タフな【用心棒タロ兵衛】を忍者護衛としてパーティー同行契約する</span>
                   </button>
                 </div>
               )}
