@@ -259,10 +259,10 @@ export function generateDungeonFloor(floorNumber) {
       type: npcTemplate.type,
       x: pos.x,
       y: pos.y,
-      hp: 100,
-      maxHp: 100,
-      atk: 12 + Math.floor(floorNumber * 2),
-      def: 10 + Math.floor(floorNumber * 1.5),
+      hp: 150 + Math.floor(floorNumber * 20),
+      maxHp: 150 + Math.floor(floorNumber * 20),
+      atk: 18 + Math.floor(floorNumber * 3.5),
+      def: 15 + Math.floor(floorNumber * 2.5),
     });
   }
 

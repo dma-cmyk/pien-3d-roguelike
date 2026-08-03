@@ -668,9 +668,17 @@ export default function App() {
       });
 
       if (minDist <= 1) {
-        const dmg = Math.max(1, enemy.atk - closestTarget.def);
-        closestTarget.hp -= dmg;
-        addLog(`💥 ${enemy.emoji} ${enemy.name} の攻撃！ ${closestTarget.name} に ${dmg} ダメージ！`);
+        let baseDmg = Math.max(1, enemy.atk - closestTarget.def);
+        if (targetType === 'NPC') {
+          const isPlayerNear = Math.abs(player.x - closestTarget.x) <= 1 && Math.abs(player.y - closestTarget.y) <= 1;
+          const isPetNear = companions.some((c) => Math.abs(c.x - closestTarget.x) <= 1 && Math.abs(c.y - closestTarget.y) <= 1);
+          if (isPlayerNear || isPetNear) {
+            baseDmg = Math.max(1, Math.floor(baseDmg * 0.5));
+            addLog(`🛡️ 【身代わり防護】 ${player.name} たちが近くで庇ったため ${closestTarget.name} への被ダメージが半減された！`);
+          }
+        }
+        closestTarget.hp -= baseDmg;
+        addLog(`💥 ${enemy.emoji} ${enemy.name} の攻撃！ ${closestTarget.name} に ${baseDmg} ダメージ！`);
         sounds.playHit();
 
         if (targetType === 'PLAYER' && player.hp <= 0) {
@@ -977,6 +985,13 @@ export default function App() {
       player.hp = Math.min(player.maxHp, player.hp + healAmount);
       companions.forEach((c) => {
         c.hp = Math.min(c.maxHp, c.hp + healAmount);
+      });
+      // Heal adjacent friendly NPCs
+      state.npcs.forEach((npc) => {
+        if (Math.abs(npc.x - player.x) <= 1 && Math.abs(npc.y - player.y) <= 1) {
+          npc.hp = Math.min(npc.maxHp, npc.hp + healAmount * 2);
+          addLog(`💖 ${npc.emoji} ${npc.name} の傷を手当し、HP を ${healAmount * 2} 回復してあげた！ (HP: ${npc.hp}/${npc.maxHp})`);
+        }
       });
       addLog(`🌿 薬草を使い、全員の HP が ${healAmount} 回復した！`);
       sounds.playHeal();
@@ -1409,14 +1424,14 @@ export default function App() {
     setGameState(state);
   };
 
-  // HEAL PET AT TAMER (Keep modal open)
+  // HEAL PET & REVIVE FRIENDLY NPCS AT TAMER
   const handleHealPetAtNpc = () => {
-    if (!gameState || gameState.companions.length === 0) return;
+    if (!gameState) return;
     const state = { ...gameState };
-    const { companions, gold } = state;
+    const { companions, npcs, gold, floor } = state;
 
     if (gold < 50) {
-      addLog('⚠️ ゴールドが足りません！ (治療費: 50G)');
+      addLog('⚠️ ゴールドが足りません！ (治療・復活費: 50G)');
       return;
     }
 
@@ -1424,8 +1439,39 @@ export default function App() {
     companions.forEach((c) => {
       c.hp = c.maxHp;
     });
-    addLog(`✨ 50G を支払って ペット全員 (${companions.length}体) の傷を治療してもらった！ (全員HP全回復)`);
-    sounds.playHeal();
+
+    // Check missing NPCs and revive them!
+    const ALL_TYPES = ['SMITH', 'IDENTIFIER', 'SHOP', 'TELLER', 'GAMBLER', 'TAMER'];
+    const currentTypes = npcs.map((n) => n.type);
+    const missingTypes = ALL_TYPES.filter((t) => !currentTypes.includes(t));
+
+    let revivedCount = 0;
+    missingTypes.forEach((mType) => {
+      const template = FRIENDLY_NPCS.find((f) => f.type === mType);
+      if (template) {
+        state.npcs.push({
+          id: `revived_${Date.now()}_${Math.random()}`,
+          name: template.name,
+          emoji: template.emoji,
+          type: template.type,
+          x: state.player.x + 1,
+          y: state.player.y,
+          hp: 150 + Math.floor(floor * 20),
+          maxHp: 150 + Math.floor(floor * 20),
+          atk: 18 + Math.floor(floor * 3.5),
+          def: 15 + Math.floor(floor * 2.5),
+        });
+        revivedCount++;
+      }
+    });
+
+    if (revivedCount > 0) {
+      addLog(`✨ 💖 50G を支払って ペット全員の治療 ＆ 気絶していた友好NPC ${revivedCount} 人を奇跡の完全復活させた！！`);
+      sounds.playFanfare();
+    } else {
+      addLog(`✨ 50G を支払って ペット全員 (${companions.length}体) および 友好NPC の傷を完治させた！`);
+      sounds.playHeal();
+    }
     setGameState(state);
   };
 
@@ -1751,14 +1797,12 @@ export default function App() {
                     <span>🐉 ベビードラゴン (超強力)</span><span className="text-yellow-300">250G</span>
                   </button>
 
-                  {gameState?.companions?.length > 0 && (
-                    <button
-                      onClick={handleHealPetAtNpc}
-                      className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded flex items-center justify-center space-x-1 mt-2"
-                    >
-                      <span>💖 50G でペット全員 ({gameState.companions.length}体) を治療する (全快)</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={handleHealPetAtNpc}
+                    className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded flex items-center justify-center space-x-1 mt-2"
+                  >
+                    <span>💖 50G でペット治療 ＆ 気絶NPCを全員完全復活させる</span>
+                  </button>
                 </div>
               )}
 
