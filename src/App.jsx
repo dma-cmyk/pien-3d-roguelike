@@ -297,7 +297,20 @@ export default function App() {
         } else if (targetTile === 'F') {
           const npcHere = npcs.find((n) => n.x === targetX && n.y === targetY);
           if (npcHere) {
+            // SWAP POSITIONS WITH FRIENDLY NPC & OPEN DIALOGUE
+            const tempX = player.x;
+            const tempY = player.y;
+
+            player.x = npcHere.x;
+            player.y = npcHere.y;
+
+            npcHere.x = tempX;
+            npcHere.y = tempY;
+
+            addLog(`🔄 ${player.name} は ${npcHere.emoji} ${npcHere.name} と位置を入れ替えた！`);
+            sounds.playSelect();
             triggerNpcDialogue(npcHere);
+            turnActionTaken = true;
           } else {
             player.x = targetX;
             player.y = targetY;
