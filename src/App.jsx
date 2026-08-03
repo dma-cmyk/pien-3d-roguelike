@@ -22,7 +22,7 @@ export const FRIENDLY_NPCS = [
   { type: 'IDENTIFIER', name: '鑑定士マロン', emoji: '🧙‍♂️', role: '未識別アイテムの一括全鑑定' },
   { type: 'TELLER', name: '占い師シルフィ', emoji: '🧕', role: 'マップ透視 & Gemini AI 神器降臨' },
   { type: 'GAMBLER', name: 'ギャンブラーのジャック', emoji: '🤵', role: '倍プッシュBJ & 高速目押しカジノ' },
-  { type: 'TAMER', name: '魔物使いのガゼル', emoji: '🤠', role: 'ペット売買・治療 & 気絶NPC完全復活' },
+  { type: 'TAMER', name: '魔物使いのガゼル', emoji: '👳‍♂️', role: 'ペット売買・治療 & 気絶NPC完全復活' },
   { type: 'ALCHEMIST', name: '錬金術師ゼノ', emoji: '👨‍🔬', role: '武具へ最高級エゴ属性（全知全能/吸血）確定注入' },
   { type: 'SCHOLAR', name: '魔法学者ルーン', emoji: '🧙‍♀️', role: '魔法書の使用回数充填 & 古代呪文伝授' },
   { type: 'DANCER', name: '踊り子リリィ', emoji: '💃', role: '熱狂ダンスで全員ATK・DEF・移動バフ' },
