@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateDungeonFloor } from './game/dungeonGenerator';
 import { sounds } from './utils/soundEngine';
-import { generateBossData, generateNpcDialogue, generateArtifactByGemini } from './utils/geminiApi';
+import { generateBossData, generateNpcDialogue, generateArtifactByGemini, generateUniqueMonsterByGemini } from './utils/geminiApi';
 
 import { DungeonCanvas } from './components/DungeonCanvas';
 import { TornekoHUD } from './components/TornekoHUD';
@@ -935,6 +935,29 @@ export default function App() {
           y: dungeon.stairsPos.y,
         });
         addLog(`🤖 【Gemini AI 創世】 冒険の軌跡に応じて Gemini AI が伝説の神器 【${aiArtifact.name}】 をオンデマンド生み出し、階層に降臨させた！`);
+      }
+    }
+
+    // DYNAMIC GEMINI AI RARE NAMED UNIQUE MONSTER GENERATION ON FLOOR >= 2 (30% Chance)
+    if (nextFloor >= 2 && Math.random() < 0.30) {
+      const uniqueMonster = await generateUniqueMonsterByGemini(nextFloor, state.playerName);
+      if (uniqueMonster) {
+        state.enemies.push({
+          id: `unique_${Date.now()}_${Math.random()}`,
+          name: uniqueMonster.name,
+          emoji: uniqueMonster.emoji,
+          x: Math.max(1, dungeon.stairsPos.x - 2),
+          y: dungeon.stairsPos.y,
+          hp: uniqueMonster.hp,
+          maxHp: uniqueMonster.hp,
+          atk: uniqueMonster.atk,
+          def: uniqueMonster.def,
+          exp: uniqueMonster.exp,
+          isUnique: true,
+          specialAbility: uniqueMonster.specialAbility,
+        });
+        addLog(`✨ 👾 【Gemini AI 創世・超レアユニーク魔物降臨】 固有ネームを持つ伝説の超希少種 ${uniqueMonster.emoji} ${uniqueMonster.name} が地下 ${nextFloor}F に現れた！！`);
+        sounds.playFanfare();
       }
     }
 

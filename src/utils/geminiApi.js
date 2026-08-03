@@ -176,16 +176,96 @@ function getFallbackBoss(floor, hp, atk, def) {
   };
 }
 
-function getFallbackDialogue(emoji, name) {
-  const dialogues = {
-    '👷': 'ワシの鍛冶技術にかかれば、どんな硬い鉄鉱石も最高の武具になるぞい！',
-    '🧙': 'フフフ…手持ちの未識別アイテム、わしが鑑定してやろうか？',
-    '👨': 'いらっしゃい！本日の日替わり商品は自信作ばかりだよ！',
-    '🧕': 'ふむ…あなたの未来が見えます…フロアの全貌を映し出しましょう。',
-    '🤵': 'やあ！倍プッシュで一獲千金を狙ってみないかい？',
-    '🧔': '元気なモンスターをテイムして仲間にしてごらん！',
+function getFallbackDialogue(npcEmoji, npcName) {
+  return `${npcEmoji} ${npcName}: 「迷宮の奥深くには、Gemini AI が創世する固有ネーム持ちの超レアユニークモンスター『...』が潜んでいるという噂だぞ…！」`;
+}
+
+// 👾 DYNAMIC GEMINI UNIQUE NAMED RARE MONSTER GENERATOR (世界に一頭だけの『固有ネーム持ち超希少変異種』)
+export async function generateUniqueMonsterByGemini(floorNumber, playerName) {
+  const apiKey = getStoredApiKey();
+  const scaledHp = Math.floor(120 + floorNumber * 35);
+  const scaledAtk = Math.floor(18 + floorNumber * 5);
+  const scaledDef = Math.floor(10 + floorNumber * 3);
+  const scaledExp = Math.floor(300 + floorNumber * 70);
+
+  if (!apiKey) {
+    return getFallbackUniqueMonster(floorNumber, scaledHp, scaledAtk, scaledDef, scaledExp);
+  }
+
+  try {
+    const prompt = `ローグライクRPG「🥺の不思議な迷宮」の地下${floorNumber}階に超低確率で出現する、絶対に他のモンスターと名前が被らない【固有の名前がついた世界に一体だけの超レア・ユニークモンスター】を創作してください。
+名前は必ず『...』で囲み、二つ名＋固有ネームを付けてください（例: 『星喰らいの銀竜・ルミナス』, 『時空を穿つ者・クロノス』, 『夢幻の妖魔・リリス』, 『黄金の強奪者・ジャックpot』など）。
+JSONフォーマットのみで返答してください。
+JSON構造:
+{
+  "name": "『二重カギ括弧で囲んだ固有ネーム持ち超レアユニークモンスター名』",
+  "emoji": "神秘的または超レアな絵文字1文字 (🦄, 🐉, 🦚, 🐲, 👾, 🌌, 🦤, 🐙, 🔮など)",
+  "species": "種族名 (例: 伝説幻獣, 虚空神, 古代魔竜, 幻影変異種)",
+  "hp": ${scaledHp},
+  "atk": ${scaledAtk},
+  "def": ${scaledDef},
+  "exp": ${scaledExp},
+  "specialAbility": "超レアならではの固有特性・技（例: 遠距離火炎ブレス, 会心必殺, 身軽回避, 黄金強奪）"
+}`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      }
+    );
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text) {
+      const parsed = JSON.parse(text);
+      let rawName = parsed.name || `『地下${floorNumber}階の幻獣・アルファ』`;
+      if (!rawName.startsWith('『')) rawName = `『${rawName}』`;
+      return {
+        ...parsed,
+        name: rawName,
+        isUnique: true,
+        hp: parsed.hp || scaledHp,
+        maxHp: parsed.hp || scaledHp,
+        atk: parsed.atk || scaledAtk,
+        def: parsed.def || scaledDef,
+        exp: parsed.exp || scaledExp,
+      };
+    }
+  } catch (err) {
+    console.warn('Gemini API Unique Monster Gen failed, fallback used:', err);
+  }
+  return getFallbackUniqueMonster(floorNumber, scaledHp, scaledAtk, scaledDef, scaledExp);
+}
+
+function getFallbackUniqueMonster(floorNumber, hp, atk, def, exp) {
+  const fallbackNames = [
+    '『黄金の覇者・ピエンキング』',
+    '『時空を断つ銀翼竜・クロノス』',
+    '『深淵の虹色スライム王・プリズム』',
+    '『虚空を奔る光速魔獣・ゼウス』',
+    '『夢幻の星喰らい・ルミナス』',
+  ];
+  const fallbackEmojis = ['🦄', '🐉', '🦚', '🐲', '🌌'];
+  const idx = Math.floor(Math.random() * fallbackNames.length);
+
+  return {
+    name: fallbackNames[idx],
+    emoji: fallbackEmojis[idx],
+    species: '固有ネーム超希少種',
+    isUnique: true,
+    hp,
+    maxHp: hp,
+    atk,
+    def,
+    exp,
+    specialAbility: '超高ステータス & 高経験値',
   };
-  return dialogues[emoji] || '迷宮の探索、気を付けて進むのじゃぞ！';
 }
 
 function getFallbackArtifact(floor) {
