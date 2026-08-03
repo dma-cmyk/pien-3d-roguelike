@@ -1205,7 +1205,11 @@ export default function App() {
     }
 
     state.gold -= item.cost;
-    state.inventory.push({ ...item, id: `bought_${Date.now()}_${Math.random()}` });
+    state.inventory.push({
+      ...item,
+      id: `bought_${Date.now()}_${Math.random()}`,
+      contents: item.contents ? [] : undefined,
+    });
     addLog(`💰 ${item.cost}G で ${item.emoji} ${item.name} を購入した！ (残金: ${state.gold}G)`);
     sounds.playHeal();
     setGameState(state);

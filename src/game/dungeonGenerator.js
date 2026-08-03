@@ -79,6 +79,7 @@ export function generateRandomItem(x, y, floorNumber) {
   return {
     ...tpl,
     id: `std_${Date.now()}_${Math.random()}`,
+    contents: tpl.contents ? [] : undefined,
     x,
     y,
     isIdentified: true,
