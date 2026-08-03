@@ -703,7 +703,30 @@ export default function App() {
       });
 
       if (nearestEnemy) {
+        const isDragon = companion.emoji === '🐉' || companion.name.includes('ドラゴン');
+        const isCat = companion.emoji === '🐈' || companion.name.includes('キャット');
+        const isLowHp = companion.hp < companion.maxHp * 0.35;
+
         if (minDist <= 1) {
+          if (isCat && isLowHp) {
+            const escapeDx = Math.sign(companion.x - nearestEnemy.x);
+            const escapeDy = Math.sign(companion.y - nearestEnemy.y);
+            const nextX = companion.x + (escapeDx || (Math.random() < 0.5 ? 1 : -1));
+            const nextY = companion.y + (escapeDy || (Math.random() < 0.5 ? 1 : -1));
+
+            const isOccupied =
+              (player.x === nextX && player.y === nextY) ||
+              companions.some((c) => c.id !== companion.id && c.x === nextX && c.y === nextY) ||
+              enemies.some((e) => e.x === nextX && e.y === nextY);
+
+            if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
+              companion.x = nextX;
+              companion.y = nextY;
+              addLog(`💨 🐾 ${companion.name} は危険を感じて身軽にバックステップ回避した！`);
+              return;
+            }
+          }
+
           const dmg = Math.max(1, companion.atk - nearestEnemy.def);
           nearestEnemy.hp -= dmg;
           addLog(`🐾 ${companion.name} の攻撃！ ${nearestEnemy.emoji} ${nearestEnemy.name} に ${dmg} ダメージ！`);
@@ -715,6 +738,38 @@ export default function App() {
             distributeExpAndCheckLevelUps(state, nearestEnemy.exp, companion.name);
           }
           return;
+        }
+
+        if (isDragon && minDist <= 3) {
+          // DRAGON: RANGED FLAME BREATH ATTACK!
+          const breathDmg = Math.max(12, Math.floor(companion.atk * 1.3));
+          nearestEnemy.hp -= breathDmg;
+          addLog(`🔥 🐉 ${companion.name} は口から火炎ブレスを吐き出し、遠くの ${nearestEnemy.emoji} ${nearestEnemy.name} に ${breathDmg} 火炎ダメージを与えた！`);
+          sounds.playMagic();
+
+          if (nearestEnemy.hp <= 0) {
+            state.enemies = enemies.filter((e) => e.id !== nearestEnemy.id);
+            addLog(`💥 🔥 🐉 ${companion.name} のブレス焼き尽くしで ${nearestEnemy.name} は灰となった！ (Exp +${nearestEnemy.exp})`);
+            distributeExpAndCheckLevelUps(state, nearestEnemy.exp, companion.name);
+          }
+          return;
+        } else if (minDist <= 4) {
+          // ADVANCE TOWARD ENEMY
+          const dx = Math.sign(nearestEnemy.x - companion.x);
+          const dy = Math.sign(nearestEnemy.y - companion.y);
+          const nextX = companion.x + dx;
+          const nextY = companion.y + dy;
+
+          const isOccupied =
+            (player.x === nextX && player.y === nextY) ||
+            companions.some((c) => c.id !== companion.id && c.x === nextX && c.y === nextY) ||
+            enemies.some((e) => e.x === nextX && e.y === nextY);
+
+          if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
+            companion.x = nextX;
+            companion.y = nextY;
+            return;
+          }
         }
       }
 
@@ -733,6 +788,22 @@ export default function App() {
         const isEnemyOnNext = enemies.some((e) => e.x === nextX && e.y === nextY);
 
         if (grid[nextY]?.[nextX] === 'F' && !isPlayerOnNext && !isOtherPetOnNext && !isEnemyOnNext) {
+          companion.x = nextX;
+          companion.y = nextY;
+        }
+      } else if (Math.random() < 0.3) {
+        // IDLE WANDER AROUND PLAYER WHEN SAFE
+        const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+        const dir = dirs[Math.floor(Math.random() * dirs.length)];
+        const nextX = companion.x + dir.x;
+        const nextY = companion.y + dir.y;
+
+        const isOccupied =
+          (player.x === nextX && player.y === nextY) ||
+          companions.some((c) => c.id !== companion.id && c.x === nextX && c.y === nextY) ||
+          enemies.some((e) => e.x === nextX && e.y === nextY);
+
+        if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
           companion.x = nextX;
           companion.y = nextY;
         }
@@ -828,10 +899,30 @@ export default function App() {
     state.player.y = dungeon.playerSpawn.y;
     setMhTriggered(false);
 
-    // Multi-Pet Follow Array Placement
+    // Safe Multi-Pet Placement Algorithm (Prevent Wall / Out-of-Bounds Spawns)
+    const px = dungeon.playerSpawn.x;
+    const py = dungeon.playerSpawn.y;
+    const mapSize = dungeon.mapSize;
+
+    const availableFloors = [];
+    for (let r = 1; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) === r || Math.abs(dy) === r) {
+            const tx = px + dx;
+            const ty = py + dy;
+            if (tx >= 0 && tx < mapSize && ty >= 0 && ty < mapSize && dungeon.grid[ty]?.[tx] === 'F') {
+              availableFloors.push({ x: tx, y: ty });
+            }
+          }
+        }
+      }
+    }
+
     state.companions.forEach((c, idx) => {
-      c.x = dungeon.playerSpawn.x - (idx + 1);
-      c.y = dungeon.playerSpawn.y;
+      const pos = availableFloors[idx] || { x: px, y: py };
+      c.x = pos.x;
+      c.y = pos.y;
     });
 
     // DYNAMIC GEMINI AI ARTIFACT GENERATION ON FLOOR >= 3 (Random Floor Drop)
