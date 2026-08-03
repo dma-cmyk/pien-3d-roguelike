@@ -15,6 +15,20 @@ const SAVE_KEY = 'pien_roguelike_save_v1';
 // UNLIMITED PET COMPANIONS (No Limit Multi-Pet Army!)
 const MAX_COMPANIONS = 99999;
 
+// 10 Unique Human-Icon Friendly NPCs
+export const FRIENDLY_NPCS = [
+  { type: 'SHOP', name: '道具屋トネコ', emoji: '👨', role: 'アイテムの売買・日替わり限定品' },
+  { type: 'SMITH', name: '鍛冶屋のガンテツ', emoji: '👷', role: '装備の鍛錬・強化 & 素材クラフト' },
+  { type: 'IDENTIFIER', name: '鑑定士マロン', emoji: '🧙‍♂️', role: '未識別アイテムの一括全鑑定' },
+  { type: 'TELLER', name: '占い師シルフィ', emoji: '🧕', role: 'マップ透視 & Gemini AI 神器降臨' },
+  { type: 'GAMBLER', name: 'ギャンブラーのジャック', emoji: '🤵', role: '倍プッシュBJ & 高速目押しカジノ' },
+  { type: 'TAMER', name: '魔物使いのガゼル', emoji: '🧔', role: 'ペット売買・治療 & 気絶NPC完全復活' },
+  { type: 'ALCHEMIST', name: '錬金術師ゼノ', emoji: '👨‍🔬', role: '武具へ最高級エゴ属性（全知全能/吸血）確定注入' },
+  { type: 'SCHOLAR', name: '魔法学者ルーン', emoji: '🧙‍♀️', role: '魔法書の使用回数充填 & 古代呪文伝授' },
+  { type: 'DANCER', name: '踊り子リリィ', emoji: '💃', role: '熱狂ダンスで全員ATK・DEF・移動バフ' },
+  { type: 'BODYGUARD', name: '用心棒タロ兵衛', emoji: '🧔‍♂️', role: '頼もしい人間護衛としてパーティー同行契約' },
+];
+
 // Master Catalog for Dynamic Shop Inventory (with Ego + Material + Artifact Named Items)
 const SHOP_MASTER_CATALOG = [
   { id: 'HERB', name: '薬草', emoji: '🌿', cost: 40, category: 'CONSUMABLE', type: 'HERB', heal: 35 },
@@ -1480,28 +1494,32 @@ export default function App() {
     setGameState(state);
   };
 
-  // 🧪 ALCHEMIST: BREW ELIXIR
-  const handleBrewElixirAtAlchemist = () => {
+  // 👨‍🔬 ALCHEMIST: INJECT LEGENDARY EGO ATTRIBUTE
+  const handleInjectEgoAtAlchemist = () => {
     if (!gameState) return;
     const state = { ...gameState };
-    if (state.gold < 100) {
-      addLog('⚠️ ゴールドが足りません！ (錬成費: 100G)');
+    if (state.gold < 150) {
+      addLog('⚠️ ゴールドが足りません！ (錬成費: 150G)');
+      return;
+    }
+    if (!equippedWeapon && !equippedShield) {
+      addLog('⚠️ エゴ属性を注入する装備品を装着していません！');
       return;
     }
 
-    state.gold -= 100;
-    const elixir = {
-      id: `elixir_${Date.now()}`,
-      name: '🧪 万能のエリクサー',
-      emoji: '🧪',
-      category: 'CONSUMABLE',
-      type: 'POTION',
-      heal: 100,
-      foodRestore: 100,
-      isIdentified: true,
-    };
-    state.inventory.push(elixir);
-    addLog('🧪 錬金術師ゼノが素材を調合し、【🧪 万能のエリクサー (HP/満腹度全快)】を精錬した！');
+    state.gold -= 150;
+    const egoPool = ['全知全能', '吸血', '魔法反射', '暗視', '会心', '狂乱'];
+    const chosenEgo = egoPool[Math.floor(Math.random() * egoPool.length)];
+
+    const targetEquip = equippedWeapon || equippedShield;
+    targetEquip.enchantments = targetEquip.enchantments || [];
+    if (!targetEquip.enchantments.includes(chosenEgo)) {
+      targetEquip.enchantments.push(chosenEgo);
+    }
+    targetEquip.atkBonus = (targetEquip.atkBonus || 0) + 5;
+    targetEquip.name = `✨ 秘錬の ${targetEquip.name.replace(/✨ 秘錬の /g, '')}`;
+
+    addLog(`👨‍🔬 錬金術師ゼノが秘薬を振りかけ、${targetEquip.name} に最高級エゴ【${chosenEgo}】を確定注入した！ (ATK+5)`);
     sounds.playMagic();
     setGameState(state);
   };
@@ -1525,7 +1543,7 @@ export default function App() {
 
     if (rechargedCount > 0) {
       state.gold -= 100;
-      addLog(`📜 魔法学者ルーンが魔力を注入し、手持ちの魔法書 ${rechargedCount} 冊の使用回数を +5 充填した！`);
+      addLog(`📜 🧙‍♀️ 魔法学者ルーンが魔力を注入し、手持ちの魔法書 ${rechargedCount} 冊の使用回数を +5 充填した！`);
       sounds.playMagic();
     } else {
       addLog('⚠️ 充填できる魔法書を持っていません！');
@@ -1555,24 +1573,38 @@ export default function App() {
     setGameState(state);
   };
 
-  // 📦 STORAGE MASTER: GIVE FREE STORAGE JAR
-  const handleGetStorageJarAtStorageMaster = () => {
+  // 🧔‍♂️ BODYGUARD: HIRE HUMAN BODYGUARD TARO
+  const handleHireBodyguardAtTaro = () => {
     if (!gameState) return;
     const state = { ...gameState };
+    const { player, companions } = state;
 
-    const jar = {
-      id: `storage_jar_${Date.now()}`,
-      name: '📦 保存の壺',
-      emoji: '📦',
-      category: 'JAR',
-      type: 'STORAGE',
-      capacity: 5,
-      contents: [],
-      isIdentified: true,
+    if (state.gold < 120) {
+      addLog('⚠️ ゴールドが足りません！ (用心棒契約料: 120G)');
+      return;
+    }
+
+    state.gold -= 120;
+    const bodyguardPet = {
+      id: `bodyguard_${Date.now()}`,
+      name: '用心棒タロ兵衛',
+      emoji: '🧔‍♂️',
+      x: player.x - 1,
+      y: player.y,
+      hp: 120 + state.floor * 15,
+      maxHp: 120 + state.floor * 15,
+      atk: 22 + state.floor * 3,
+      def: 12 + state.floor * 2,
+      level: 1,
+      exp: 0,
+      inventory: [],
+      equippedWeapon: null,
+      equippedShield: null,
     };
-    state.inventory.push(jar);
-    addLog('📦 倉庫番タロ兵衛が親切に【📦 保存の壺 (容量:5)】を無料でプレゼントしてくれた！');
-    sounds.playHeal();
+
+    companions.push(bodyguardPet);
+    addLog(`✨ 🧔‍♂️ 120G で頼もしい【用心棒タロ兵衛 (HP:${bodyguardPet.hp} ATK:${bodyguardPet.atk})】と護衛契約を結び、同行参戦させた！`);
+    sounds.playFanfare();
     setGameState(state);
   };
 
@@ -1907,31 +1939,31 @@ export default function App() {
                 </div>
               )}
 
-              {/* 🧪 錬金術師 (Alchemist) */}
-              {npcSpeech.npc.emoji === '🧪' && (
+              {/* 👨‍🔬 錬金術師ゼノ (Alchemist) */}
+              {(npcSpeech.npc.emoji === '👨‍🔬' || npcSpeech.npc.emoji === '🧪') && (
                 <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
                   <button
-                    onClick={handleBrewElixirAtAlchemist}
+                    onClick={handleInjectEgoAtAlchemist}
                     className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                   >
-                    <span>🧪 100G で【万能のエリクサー (HP/満腹度全快)】を調合・精錬する</span>
+                    <span>👨‍🔬 150G で装備に【全知全能 / 吸血 / 魔法反射】等の最高級エゴを確定注入する</span>
                   </button>
                 </div>
               )}
 
-              {/* 📜 魔法学者 (Scholar) */}
-              {npcSpeech.npc.emoji === '📜' && (
+              {/* 🧙‍♀️ 魔法学者ルーン (Scholar) */}
+              {(npcSpeech.npc.emoji === '🧙‍♀️' || npcSpeech.npc.emoji === '📜') && (
                 <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
                   <button
                     onClick={handleRechargeSpellbooksAtScholar}
                     className="w-full py-2.5 bg-cyan-800 hover:bg-cyan-700 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                   >
-                    <span>📜 100G で手持ち全『魔法書』の使用回数を +5 充填（リチャージ）する</span>
+                    <span>📜 🧙‍♀️ 100G で手持ち全『魔法書』の使用回数を +5 充填（リチャージ）する</span>
                   </button>
                 </div>
               )}
 
-              {/* 💃 踊り子 (Dancer) */}
+              {/* 💃 踊り子リリィ (Dancer) */}
               {npcSpeech.npc.emoji === '💃' && (
                 <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
                   <button
@@ -1943,14 +1975,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* 📦 倉庫番 (Storage Master) */}
-              {npcSpeech.npc.emoji === '📦' && (
+              {/* 🧔‍♂️ 用心棒タロ兵衛 (Bodyguard) */}
+              {(npcSpeech.npc.emoji === '🧔‍♂️' || npcSpeech.npc.emoji === '📦') && (
                 <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
                   <button
-                    onClick={handleGetStorageJarAtStorageMaster}
+                    onClick={handleHireBodyguardAtTaro}
                     className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
                   >
-                    <span>📦 【無料進呈】 親切なタロ兵衛から『保存の壺 (容量:5)』を貰う</span>
+                    <span>🧔‍♂️ 120G で超タフな【用心棒タロ兵衛】を人間護衛としてパーティー同行契約する</span>
                   </button>
                 </div>
               )}
