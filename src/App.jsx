@@ -1480,6 +1480,102 @@ export default function App() {
     setGameState(state);
   };
 
+  // 🧪 ALCHEMIST: BREW ELIXIR
+  const handleBrewElixirAtAlchemist = () => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    if (state.gold < 100) {
+      addLog('⚠️ ゴールドが足りません！ (錬成費: 100G)');
+      return;
+    }
+
+    state.gold -= 100;
+    const elixir = {
+      id: `elixir_${Date.now()}`,
+      name: '🧪 万能のエリクサー',
+      emoji: '🧪',
+      category: 'CONSUMABLE',
+      type: 'POTION',
+      heal: 100,
+      foodRestore: 100,
+      isIdentified: true,
+    };
+    state.inventory.push(elixir);
+    addLog('🧪 錬金術師ゼノが素材を調合し、【🧪 万能のエリクサー (HP/満腹度全快)】を精錬した！');
+    sounds.playMagic();
+    setGameState(state);
+  };
+
+  // 📜 SCHOLAR: RECHARGE SPELLBOOKS
+  const handleRechargeSpellbooksAtScholar = () => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    if (state.gold < 100) {
+      addLog('⚠️ ゴールドが足りません！ (充填費: 100G)');
+      return;
+    }
+
+    let rechargedCount = 0;
+    state.inventory.forEach((item) => {
+      if (item.category === 'SPELLBOOK') {
+        item.uses = (item.uses || 0) + 5;
+        rechargedCount++;
+      }
+    });
+
+    if (rechargedCount > 0) {
+      state.gold -= 100;
+      addLog(`📜 魔法学者ルーンが魔力を注入し、手持ちの魔法書 ${rechargedCount} 冊の使用回数を +5 充填した！`);
+      sounds.playMagic();
+    } else {
+      addLog('⚠️ 充填できる魔法書を持っていません！');
+    }
+    setGameState(state);
+  };
+
+  // 💃 DANCER: PARTY BUFF DANCE
+  const handleDanceBuffAtDancer = () => {
+    if (!gameState) return;
+    const state = { ...gameState };
+    if (state.gold < 60) {
+      addLog('⚠️ ゴールドが足りません！ (おひねり: 60G)');
+      return;
+    }
+
+    state.gold -= 60;
+    state.player.atk += 8;
+    state.player.def += 5;
+    state.companions.forEach((c) => {
+      c.atk += 5;
+      c.def += 3;
+    });
+
+    addLog('💃 踊り子リリィが情熱的な応援ダンスを披露！ パーティー全員のテンションが上がり ATK+8 / DEF+5 の超強力バフ発動！');
+    sounds.playFanfare();
+    setGameState(state);
+  };
+
+  // 📦 STORAGE MASTER: GIVE FREE STORAGE JAR
+  const handleGetStorageJarAtStorageMaster = () => {
+    if (!gameState) return;
+    const state = { ...gameState };
+
+    const jar = {
+      id: `storage_jar_${Date.now()}`,
+      name: '📦 保存の壺',
+      emoji: '📦',
+      category: 'JAR',
+      type: 'STORAGE',
+      capacity: 5,
+      contents: [],
+      isIdentified: true,
+    };
+    state.inventory.push(jar);
+    addLog('📦 倉庫番タロ兵衛が親切に【📦 保存の壺 (容量:5)】を無料でプレゼントしてくれた！');
+    sounds.playHeal();
+    setGameState(state);
+  };
+
   const handleRenamePet = () => {
     if (!gameState || gameState.companions.length === 0) return;
     const state = { ...gameState };
@@ -1807,6 +1903,54 @@ export default function App() {
                     className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded flex items-center justify-center space-x-1 mt-2"
                   >
                     <span>💖 50G でペット治療 ＆ 気絶NPCを全員完全復活させる</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 🧪 錬金術師 (Alchemist) */}
+              {npcSpeech.npc.emoji === '🧪' && (
+                <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
+                  <button
+                    onClick={handleBrewElixirAtAlchemist}
+                    className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
+                  >
+                    <span>🧪 100G で【万能のエリクサー (HP/満腹度全快)】を調合・精錬する</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 📜 魔法学者 (Scholar) */}
+              {npcSpeech.npc.emoji === '📜' && (
+                <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
+                  <button
+                    onClick={handleRechargeSpellbooksAtScholar}
+                    className="w-full py-2.5 bg-cyan-800 hover:bg-cyan-700 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
+                  >
+                    <span>📜 100G で手持ち全『魔法書』の使用回数を +5 充填（リチャージ）する</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 💃 踊り子 (Dancer) */}
+              {npcSpeech.npc.emoji === '💃' && (
+                <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
+                  <button
+                    onClick={handleDanceBuffAtDancer}
+                    className="w-full py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-bold rounded shadow-lg animate-bounce"
+                  >
+                    <span>💃 60G で熱狂応援ダンスをリクエストする (全員ATK+8 / DEF+5 大バフ)</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 📦 倉庫番 (Storage Master) */}
+              {npcSpeech.npc.emoji === '📦' && (
+                <div className="flex flex-col space-y-2 border-t border-gray-700 pt-2">
+                  <button
+                    onClick={handleGetStorageJarAtStorageMaster}
+                    className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded flex items-center justify-center space-x-1 shadow"
+                  >
+                    <span>📦 【無料進呈】 親切なタロ兵衛から『保存の壺 (容量:5)』を貰う</span>
                   </button>
                 </div>
               )}

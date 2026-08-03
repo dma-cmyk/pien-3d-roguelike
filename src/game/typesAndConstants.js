@@ -206,14 +206,18 @@ export const ENCHANTMENTS = [
   '暗視', '必中', '防具頑丈', '金運', '呪い耐性'
 ];
 
-// 6 Friendly NPCs
+// 10 Unique Friendly NPCs
 export const FRIENDLY_NPCS = [
-  { type: 'SHOP', name: '道具屋', emoji: '👨', role: 'アイテムの売買' },
-  { type: 'SMITH', name: '鍛冶屋', emoji: '👷', role: '装備の鍛錬・強化 & 素材クラフト' },
-  { type: 'IDENTIFIER', name: '鑑定士', emoji: '🧙', role: '未識別アイテムの鑑定' },
-  { type: 'TELLER', name: '占い師', emoji: '🧕', role: 'マップ透視 & Gemini AI 神器降臨' },
-  { type: 'GAMBLER', name: 'ギャンブラー', emoji: '🤵', role: '倍プッシュBJ & 高速目押しカジノ' },
-  { type: 'TAMER', name: '魔物使い', emoji: '🧔', role: 'ペット売買 & 回復治療' },
+  { type: 'SHOP', name: '道具屋トネコ', emoji: '👨', role: 'アイテムの売買・日替わり限定品' },
+  { type: 'SMITH', name: '鍛冶屋のガンテツ', emoji: '👷', role: '装備の鍛錬・強化 & 素材クラフト' },
+  { type: 'IDENTIFIER', name: '鑑定士マロン', emoji: '🧙', role: '未識別アイテムの一括全鑑定' },
+  { type: 'TELLER', name: '占い師シルフィ', emoji: '🧕', role: 'マップ透視 & Gemini AI 神器降臨' },
+  { type: 'GAMBLER', name: 'ギャンブラーのジャック', emoji: '🤵', role: '倍プッシュBJ & 高速目押しカジノ' },
+  { type: 'TAMER', name: '魔物使いのガゼル', emoji: '🧔', role: 'ペット売買・治療 & 気絶NPC完全復活' },
+  { type: 'ALCHEMIST', name: '錬金術師ゼノ', emoji: '🧪', role: '秘薬の抽出 & 秘伝ポーション錬成' },
+  { type: 'SCHOLAR', name: '魔法学者ルーン', emoji: '📜', role: '魔法書の使用回数充填 & 古代呪文伝授' },
+  { type: 'DANCER', name: '踊り子リリィ', emoji: '💃', role: '熱狂ダンスで全員ATK・DEF・移動バフ' },
+  { type: 'STORAGE_MASTER', name: '倉庫番タロ兵衛', emoji: '📦', role: '保存の壺無料進呈 & アイテムお預かり' },
 ];
 
 export function getFloorTheme(floorNumber) {
