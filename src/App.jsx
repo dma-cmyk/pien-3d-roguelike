@@ -436,9 +436,9 @@ export default function App() {
     });
   };
 
-  // FRIENDLY NPCS SELF-DEFENSE COMBAT AI & NATURAL RECOVERY
+  // FRIENDLY NPCS SMART AUTONOMOUS AI (Combat, Evade & Patrol)
   const processFriendlyNpcCombatAI = (state) => {
-    const { npcs, enemies } = state;
+    const { npcs, enemies, grid, player, companions } = state;
 
     npcs.forEach((npc) => {
       if (npc.hp <= 0) return;
@@ -448,19 +448,86 @@ export default function App() {
         npc.hp = Math.min(npc.maxHp, npc.hp + 2);
       }
 
-      const adjacentEnemy = enemies.find(
-        (e) => Math.abs(e.x - npc.x) <= 1 && Math.abs(e.y - npc.y) <= 1
-      );
+      // Check nearby enemies (within 4 tiles)
+      let nearestEnemy = null;
+      let minDist = 999;
+      enemies.forEach((e) => {
+        const d = Math.abs(e.x - npc.x) + Math.abs(e.y - npc.y);
+        if (d < minDist) {
+          minDist = d;
+          nearestEnemy = e;
+        }
+      });
 
-      if (adjacentEnemy) {
-        const dmg = Math.max(1, npc.atk - adjacentEnemy.def + Math.floor(Math.random() * 2));
-        adjacentEnemy.hp -= dmg;
-        addLog(`🛡️ 【自衛戦闘】 ${npc.emoji} ${npc.name} は正当防衛で ${adjacentEnemy.emoji} ${adjacentEnemy.name} に ${dmg} ダメージ与えた！`);
+      // Combat Types: Smith, Bodyguard, Tamer, Alchemist
+      const isFighter = ['SMITH', 'BODYGUARD', 'TAMER', 'ALCHEMIST'].includes(npc.type);
+
+      if (nearestEnemy && minDist <= 1) {
+        // Adjacent combat
+        const dmg = Math.max(1, npc.atk - nearestEnemy.def + Math.floor(Math.random() * 2));
+        nearestEnemy.hp -= dmg;
+        addLog(`🛡️ 【自衛戦闘】 ${npc.emoji} ${npc.name} は立ち向かい ${nearestEnemy.emoji} ${nearestEnemy.name} に ${dmg} ダメージ与えた！`);
         sounds.playAttack();
 
-        if (adjacentEnemy.hp <= 0) {
-          state.enemies = enemies.filter((e) => e.id !== adjacentEnemy.id);
-          addLog(`💥 ${npc.name} は襲いかかってきた ${adjacentEnemy.name} を見事に返り討ちに！`);
+        if (nearestEnemy.hp <= 0) {
+          state.enemies = enemies.filter((e) => e.id !== nearestEnemy.id);
+          addLog(`💥 ${npc.emoji} ${npc.name} は襲いかかってきた ${nearestEnemy.name} を撃退した！`);
+        }
+      } else if (nearestEnemy && minDist <= 3) {
+        if (!isFighter || npc.hp < npc.maxHp * 0.4) {
+          // NON-FIGHTERS OR LOW HP NPCS: ESCAPE / EVADE FROM ENEMIES!
+          const escapeDx = Math.sign(npc.x - nearestEnemy.x);
+          const escapeDy = Math.sign(npc.y - nearestEnemy.y);
+          const nextX = npc.x + (escapeDx || (Math.random() < 0.5 ? 1 : -1));
+          const nextY = npc.y + (escapeDy || (Math.random() < 0.5 ? 1 : -1));
+
+          const isOccupied =
+            (player.x === nextX && player.y === nextY) ||
+            companions.some((c) => c.x === nextX && c.y === nextY) ||
+            npcs.some((other) => other.id !== npc.id && other.x === nextX && other.y === nextY) ||
+            enemies.some((e) => e.x === nextX && e.y === nextY);
+
+          if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
+            npc.x = nextX;
+            npc.y = nextY;
+            addLog(`💨 ${npc.emoji} ${npc.name} は迫り来る魔物 ${nearestEnemy.name} から逃げ惑って緊急回避移動した！`);
+          }
+        } else {
+          // FIGHTERS: ADVANCE TOWARD ENEMY TO PROTECT THE AREA
+          const dx = Math.sign(nearestEnemy.x - npc.x);
+          const dy = Math.sign(nearestEnemy.y - npc.y);
+          const nextX = npc.x + dx;
+          const nextY = npc.y + dy;
+
+          const isOccupied =
+            (player.x === nextX && player.y === nextY) ||
+            companions.some((c) => c.x === nextX && c.y === nextY) ||
+            npcs.some((other) => other.id !== npc.id && other.x === nextX && other.y === nextY) ||
+            enemies.some((e) => e.x === nextX && e.y === nextY);
+
+          if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
+            npc.x = nextX;
+            npc.y = nextY;
+          }
+        }
+      } else {
+        // IDLE: 25% Chance to wander around room/corridor peacefully
+        if (Math.random() < 0.25) {
+          const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+          const dir = dirs[Math.floor(Math.random() * dirs.length)];
+          const nextX = npc.x + dir.x;
+          const nextY = npc.y + dir.y;
+
+          const isOccupied =
+            (player.x === nextX && player.y === nextY) ||
+            companions.some((c) => c.x === nextX && c.y === nextY) ||
+            npcs.some((other) => other.id !== npc.id && other.x === nextX && other.y === nextY) ||
+            enemies.some((e) => e.x === nextX && e.y === nextY);
+
+          if (grid[nextY]?.[nextX] === 'F' && !isOccupied) {
+            npc.x = nextX;
+            npc.y = nextY;
+          }
         }
       }
     });
@@ -1464,17 +1531,38 @@ export default function App() {
     const currentTypes = npcs.map((n) => n.type);
     const missingTypes = ALL_TYPES.filter((t) => !currentTypes.includes(t));
 
+    // Helper function to find adjacent unoccupied floor
+    const getEmptyAdjacentPos = (px, py) => {
+      const offsets = [
+        { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+        { x: 1, y: 1 }, { x: -1, y: -1 }, { x: 1, y: -1 }, { x: -1, y: 1 },
+      ];
+      for (const off of offsets) {
+        const tx = px + off.x;
+        const ty = py + off.y;
+        if (state.grid[ty]?.[tx] === 'F') {
+          const occupied =
+            (state.player.x === tx && state.player.y === ty) ||
+            state.npcs.some((n) => n.x === tx && n.y === ty) ||
+            state.companions.some((c) => c.x === tx && c.y === ty);
+          if (!occupied) return { x: tx, y: ty };
+        }
+      }
+      return { x: px + 1, y: py };
+    };
+
     let revivedCount = 0;
     missingTypes.forEach((mType) => {
       const template = FRIENDLY_NPCS.find((f) => f.type === mType);
       if (template) {
+        const pos = getEmptyAdjacentPos(state.player.x, state.player.y);
         state.npcs.push({
           id: `revived_${Date.now()}_${Math.random()}`,
           name: template.name,
           emoji: template.emoji,
           type: template.type,
-          x: state.player.x + 1,
-          y: state.player.y,
+          x: pos.x,
+          y: pos.y,
           hp: 150 + Math.floor(floor * 20),
           maxHp: 150 + Math.floor(floor * 20),
           atk: 18 + Math.floor(floor * 3.5),
