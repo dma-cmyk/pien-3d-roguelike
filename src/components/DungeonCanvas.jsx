@@ -35,7 +35,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
 
     // Perspective Camera for 3D retro voxel view
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 14, 10);
+    camera.position.set(0, 11.5, 7.5);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
@@ -49,7 +49,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
     rendererRef.current = renderer;
 
     // Lighting Setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xfff5ea, 0.9);
@@ -63,7 +63,7 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
     scene.add(mapGroup);
     mapGroupRef.current = mapGroup;
 
-    // Smooth Camera Follow Loop using Ref to prevent closure freezing
+    // Smooth Stable Camera Follow Loop without view-angle shaking/wobble
     let animationFrameId;
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -72,11 +72,15 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
         const targetX = state.player.x;
         const targetZ = state.player.y;
 
-        // Smooth Lerp Camera Follow
-        cameraRef.current.position.x += (targetX - cameraRef.current.position.x) * 0.15;
-        cameraRef.current.position.z += (targetZ + 7.5 - cameraRef.current.position.z) * 0.15;
+        // Smooth Lerp Camera Position
+        cameraRef.current.position.x += (targetX - cameraRef.current.position.x) * 0.25;
+        cameraRef.current.position.z += (targetZ + 7.5 - cameraRef.current.position.z) * 0.25;
         cameraRef.current.position.y = 11.5;
-        cameraRef.current.lookAt(targetX, 0, targetZ);
+
+        // CRITICAL FIX: Lock lookAt vector relative to camera position to ELIMINATE SHAKING & TILTING
+        const camX = cameraRef.current.position.x;
+        const camZ = cameraRef.current.position.z;
+        cameraRef.current.lookAt(camX, 0, camZ - 7.5);
       }
       renderer.render(scene, camera);
     };
@@ -252,7 +256,34 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
       }
     });
 
-    // Render All Active Companion Pets 🐾 (Emerald Green HP bar #10b981)
+    // Render Enemies 👹
+    enemies.forEach((enemy) => {
+      if (nightVision || visibleGrid[enemy.y]?.[enemy.x]) {
+        const enemyMat = new THREE.SpriteMaterial({
+          map: createEmojiTexture(enemy.emoji),
+          transparent: true,
+        });
+        const enemySprite = new THREE.Sprite(enemyMat);
+        enemySprite.center.set(0.5, 0.2);
+        enemySprite.position.set(enemy.x, 0.65, enemy.y);
+        enemySprite.scale.set(enemy.isBoss ? 1.8 : 1.2, enemy.isBoss ? 1.8 : 1.2, 1);
+        enemySprite.renderOrder = 20;
+        group.add(enemySprite);
+
+        const barMat = new THREE.SpriteMaterial({
+          map: createHpBarTexture(enemy.name, enemy.hp, enemy.maxHp, enemy.isBoss ? '#dc2626' : '#ef4444'),
+          transparent: true,
+          depthTest: false,
+        });
+        const barSprite = new THREE.Sprite(barMat);
+        barSprite.position.set(enemy.x, enemy.isBoss ? 1.8 : 1.4, enemy.y);
+        barSprite.scale.set(enemy.isBoss ? 1.8 : 1.3, 0.35, 1);
+        barSprite.renderOrder = 30;
+        group.add(barSprite);
+      }
+    });
+
+    // Render Companion Pets 🐶🐱
     activePets.forEach((pet) => {
       if (nightVision || visibleGrid[pet.y]?.[pet.x]) {
         const petMat = new THREE.SpriteMaterial({
@@ -261,82 +292,47 @@ export function DungeonCanvas({ gameState, hasNightVision }) {
         });
         const petSprite = new THREE.Sprite(petMat);
         petSprite.center.set(0.5, 0.2);
-        petSprite.position.set(pet.x, 0.65, pet.y);
-        petSprite.scale.set(1.15, 1.15, 1);
-        petSprite.renderOrder = 20;
+        petSprite.position.set(pet.x, 0.6, pet.y);
+        petSprite.scale.set(1.1, 1.1, 1);
+        petSprite.renderOrder = 22;
         group.add(petSprite);
 
         const tagMat = new THREE.SpriteMaterial({
-          map: createHpBarTexture(`${pet.name} Lv.${pet.level}`, pet.hp, pet.maxHp, '#10b981'),
+          map: createHpBarTexture(`${pet.name} (Lv.${pet.level})`, pet.hp, pet.maxHp, '#22c55e'),
           transparent: true,
           depthTest: false,
         });
         const tagSprite = new THREE.Sprite(tagMat);
-        tagSprite.position.set(pet.x, 1.4, pet.y);
-        tagSprite.scale.set(1.4, 0.35, 1);
+        tagSprite.position.set(pet.x, 1.35, pet.y);
+        tagSprite.scale.set(1.3, 0.32, 1);
         tagSprite.renderOrder = 30;
         group.add(tagSprite);
       }
     });
 
-    // Render Enemies (Red HP bar #ef4444 for normal enemies, Purple #a855f7 for Bosses)
-    enemies.forEach((enemy) => {
-      if (nightVision || visibleGrid[enemy.y]?.[enemy.x]) {
-        const enemyMat = new THREE.SpriteMaterial({
-          map: createEmojiTexture(enemy.emoji),
-          transparent: true,
-        });
-        const enemySprite = new THREE.Sprite(enemyMat);
-        const scale = enemy.isBoss ? 2.0 : 1.2;
-        enemySprite.center.set(0.5, 0.2);
-        enemySprite.position.set(enemy.x, enemy.isBoss ? 0.9 : 0.65, enemy.y);
-        enemySprite.scale.set(scale, scale, 1);
-        enemySprite.renderOrder = 20;
-        group.add(enemySprite);
-
-        const hpBarColor = enemy.isBoss ? '#a855f7' : '#ef4444';
-
-        const tagMat = new THREE.SpriteMaterial({
-          map: createHpBarTexture(enemy.name, enemy.hp, enemy.maxHp, hpBarColor),
-          transparent: true,
-          depthTest: false,
-        });
-        const tagSprite = new THREE.Sprite(tagMat);
-        tagSprite.position.set(enemy.x, enemy.isBoss ? 2.0 : 1.4, enemy.y);
-        tagSprite.scale.set(enemy.isBoss ? 2.0 : 1.3, enemy.isBoss ? 0.5 : 0.32, 1);
-        tagSprite.renderOrder = 30;
-        group.add(tagSprite);
-      }
-    });
-
-    // Render Player 🥺 (Bright Blue HP bar #3b82f6)
+    // Render Player Character 🥺
     const playerMat = new THREE.SpriteMaterial({
       map: createEmojiTexture(player.emoji),
       transparent: true,
     });
     const playerSprite = new THREE.Sprite(playerMat);
     playerSprite.center.set(0.5, 0.2);
-    playerSprite.position.set(player.x, 0.65, player.y);
+    playerSprite.position.set(player.x, 0.7, player.y);
     playerSprite.scale.set(1.3, 1.3, 1);
     playerSprite.renderOrder = 25;
     group.add(playerSprite);
 
-    const playerHpMat = new THREE.SpriteMaterial({
-      map: createHpBarTexture(`${player.name} Lv.${player.level}`, player.hp, player.maxHp, '#3b82f6'),
+    const nameMat = new THREE.SpriteMaterial({
+      map: createHpBarTexture(player.name, player.hp, player.maxHp, '#3b82f6'),
       transparent: true,
       depthTest: false,
     });
-    const playerHpSprite = new THREE.Sprite(playerHpMat);
-    playerHpSprite.position.set(player.x, 1.45, player.y);
-    playerHpSprite.scale.set(1.5, 0.38, 1);
-    playerHpSprite.renderOrder = 30;
-    group.add(playerHpSprite);
-
+    const nameSprite = new THREE.Sprite(nameMat);
+    nameSprite.position.set(player.x, 1.5, player.y);
+    nameSprite.scale.set(1.4, 0.35, 1);
+    nameSprite.renderOrder = 30;
+    group.add(nameSprite);
   }, [gameState, hasNightVision]);
 
-  return (
-    <div className="relative w-full h-full overflow-hidden bg-gray-950">
-      <div ref={mountRef} className="w-full h-full" />
-    </div>
-  );
+  return <div ref={mountRef} className="w-full h-full cursor-pointer" />;
 }
