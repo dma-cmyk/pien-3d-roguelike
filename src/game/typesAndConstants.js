@@ -190,12 +190,12 @@ export const LEGENDARY_ARTIFACTS = [
   },
 ];
 
-// Wall Types with Durability & Drops
+// Wall Types with Balanced High Durability & Drops
 export const WALL_TYPES = {
-  EARTH: { type: 'EARTH', name: '土の壁', emoji: '🟫', maxHp: 20, color: '#8b5a2b', dropChance: 0.2, dropType: 'FOOD' },
-  STONE: { type: 'STONE', name: '石の壁', emoji: '🩶', maxHp: 50, color: '#808080', dropChance: 0.35, dropType: 'COMMON' },
-  ORE: { type: 'ORE', name: '鉱脈の壁', emoji: '🟦', maxHp: 100, color: '#3b82f6', dropChance: 0.6, dropType: 'RARE' },
-  OBSIDIAN: { type: 'OBSIDIAN', name: '黒曜石の壁', emoji: '⬛', maxHp: 200, color: '#1e1b4b', dropChance: 0.85, dropType: 'EPIC' },
+  EARTH: { type: 'EARTH', name: '土の壁', emoji: '🟫', maxHp: 60, color: '#8b5a2b', dropChance: 0.2, dropType: 'FOOD' },
+  STONE: { type: 'STONE', name: '石の壁', emoji: '🩶', maxHp: 150, color: '#808080', dropChance: 0.35, dropType: 'COMMON' },
+  ORE: { type: 'ORE', name: '鉱脈の壁', emoji: '🟦', maxHp: 300, color: '#3b82f6', dropChance: 0.6, dropType: 'RARE' },
+  OBSIDIAN: { type: 'OBSIDIAN', name: '黒曜石の壁', emoji: '⬛', maxHp: 600, color: '#1e1b4b', dropChance: 0.85, dropType: 'EPIC' },
 };
 
 // 20 Types of Enchantments

@@ -498,15 +498,24 @@ export default function App() {
     const wall = wallData[y]?.[x];
     if (!wall) return;
 
-    const dmg = Math.max(5, state.player.atk * 2);
+    // Digging calculation: Miner class or Mining enchantment deals 2.5x ~ 3x digging damage!
+    const isMiner = state.className === '採掘師';
+    const hasMiningEnchant =
+      equippedWeapon?.enchantments?.includes('採掘強化') ||
+      equippedShield?.enchantments?.includes('採掘強化');
+    const multiplier = (isMiner ? 2.5 : 1.0) * (hasMiningEnchant ? 2.0 : 1.0);
+
+    const baseDmg = Math.max(4, Math.floor(state.player.atk * 0.7));
+    const dmg = Math.floor(baseDmg * multiplier);
+
     wall.hp -= dmg;
-    addLog(`⛏️ ${wall.name} を採掘した！ (耐久: ${Math.max(0, wall.hp)}/${wall.maxHp})`);
+    addLog(`⛏️ ${wall.name} を採掘中… (掘削: ${dmg} / 残り耐久: ${Math.max(0, wall.hp)}/${wall.maxHp})`);
     sounds.playMine();
 
     if (wall.hp <= 0) {
       grid[y][x] = 'F';
       wallData[y][x] = null;
-      addLog(`💥 ${wall.name} が崩壊して通路になった！`);
+      addLog(`💥 ${wall.name} を崩壊させて通路を開拓した！`);
       sounds.playMineBreak();
 
       if (Math.random() < wall.dropChance) {
