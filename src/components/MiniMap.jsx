@@ -9,7 +9,7 @@ export function MiniMap({ gameState, hasNightVision }) {
   const cellSizePx = Math.max(2.5, Math.min(6, Math.floor(130 / size)));
 
   return (
-    <div className="absolute top-14 right-3 bg-black/80 border border-gray-600 p-1 rounded shadow-xl z-20 pointer-events-none max-w-[160px] max-h-[160px] overflow-hidden">
+    <div className="absolute top-14 right-3 bg-black/85 border-2 border-gray-600 p-1 rounded-lg shadow-2xl z-20 pointer-events-none max-w-[175px] max-h-[175px] overflow-hidden">
       <div
         className="grid gap-[1px]"
         style={{
@@ -48,7 +48,7 @@ export function MiniMap({ gameState, hasNightVision }) {
                 />
               );
             }
-            if (isCompanion && isVisible) {
+            if (isCompanion && (isVisible || isVisited)) {
               return (
                 <div
                   key={`${x}-${y}`}
@@ -75,12 +75,13 @@ export function MiniMap({ gameState, hasNightVision }) {
                 />
               );
             }
-            if (isNpc && isVisible) {
+            // Friendly NPCs (Cyan / Sky Blue pulsing dot for high visibility)
+            if (isNpc && (isVisible || isVisited)) {
               return (
                 <div
                   key={`${x}-${y}`}
                   style={{ width: `${cellSizePx}px`, height: `${cellSizePx}px` }}
-                  className="bg-emerald-400"
+                  className="bg-cyan-400 rounded-full animate-pulse shadow-cyan-400/50 shadow font-bold"
                 />
               );
             }
